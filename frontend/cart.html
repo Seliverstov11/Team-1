@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include head.html -->
+  <title>Корзина — Bakeloom</title>
+</head>
+<body data-page="cart">
+<!-- @include layout-start.html -->
+
+<main class="vt-content flex flex-col gap-6">
+  <nav class="text-xs font-light text-muted" aria-label="Хлебные крошки">
+    <a href="/" class="hover:text-gold">Главная</a> <span class="mx-1.5">/</span> <span class="text-ink">Корзина</span>
+  </nav>
+  <h1 class="font-serif text-[2.5rem] font-medium leading-none">Корзина</h1>
+
+  <!-- @include loading.html -->
+
+  <div x-show="$store.shop.ready && !$store.cart.lines.length" x-cloak class="card px-8 py-14 text-center">
+    <p class="font-serif text-[1.625rem]">Корзина пуста</p>
+    <p class="mt-2 text-sm font-light text-muted">Добавьте товары из каталога</p>
+    <a href="/catalog.html" class="btn-solid mt-6">Перейти в каталог</a>
+  </div>
+
+  <div x-show="$store.cart.lines.length" x-cloak class="grid grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] items-start gap-6">
+    <ul class="card divide-y divide-line px-6">
+      <template x-for="line in $store.cart.lines" :key="line.product.id">
+        <li x-data="{ get p() { return line.product } }" class="grid grid-cols-[6rem_minmax(0,1fr)_auto_auto_auto] items-center gap-6 py-5">
+          <a :href="`/product.html?id=${p.id}`" class="relative block aspect-square overflow-hidden rounded-xl" :aria-label="p.name">
+            <!-- @include product-image.html -->
+          </a>
+          <div class="min-w-0">
+            <p class="caps text-[0.5625rem] tracking-[0.18em] text-gold" x-text="$store.shop.category(p.category_id).name"></p>
+            <a :href="`/product.html?id=${p.id}`" class="mt-1 block text-sm hover:text-gold" x-text="p.name"></a>
+            <p class="mt-1 text-[0.625rem] tracking-wider text-hint"><span x-text="`Арт. ${p.sku}`"></span> · <span class="text-gold">демо</span></p>
+            <p class="mt-1 text-xs font-light text-muted" x-text="`${$store.fmt.price(p.price)} за ${p.unit}`"></p>
+          </div>
+
+          <div class="flex h-10 items-center rounded-[0.625rem] bg-ivory px-1" role="group" :aria-label="`Количество: ${p.name}`">
+            <button type="button" @click="$store.cart.set(p, line.qty - 1)" :disabled="line.qty <= 1" aria-label="Меньше"
+                    class="grid size-8 place-items-center rounded-lg transition enabled:hover:bg-white disabled:text-hint">−</button>
+            <input type="number" min="1" :max="$store.shop.stock(p)" :value="line.qty"
+                   @change="$store.cart.set(p, $event.target.value); $event.target.value = $store.cart.qty(p.id)"
+                   class="w-12 bg-transparent text-center text-sm font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" aria-label="Количество" />
+            <button type="button" @click="$store.cart.set(p, line.qty + 1)" :disabled="line.qty >= $store.shop.stock(p)" aria-label="Больше"
+                    class="grid size-8 place-items-center rounded-lg transition enabled:hover:bg-white disabled:text-hint">+</button>
+          </div>
+
+          <p class="min-w-[6.5rem] text-right font-serif text-[1.375rem] font-semibold" x-text="$store.fmt.price(p.price * line.qty)"></p>
+
+          <button type="button" @click="$store.cart.remove(p.id)" class="grid size-9 place-items-center rounded-full text-muted transition hover:bg-ivory hover:text-[#b4664a]"
+                  :aria-label="`Удалить ${p.name}`" title="Удалить">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+          </button>
+        </li>
+      </template>
+    </ul>
+
+    <aside class="card sticky top-5 p-6">
+      <h2 class="font-serif text-[1.625rem] font-medium">Итого</h2>
+      <dl class="mt-4 space-y-2 border-b border-line pb-4 text-sm">
+        <div class="flex justify-between"><dt class="font-light text-muted">Товаров</dt><dd x-text="`${$store.cart.count} шт`"></dd></div>
+        <div class="flex justify-between"><dt class="font-light text-muted">Позиций</dt><dd x-text="$store.cart.lines.length"></dd></div>
+      </dl>
+      <div class="mt-4 flex items-baseline justify-between">
+        <span class="text-sm">Сумма</span>
+        <span class="font-serif text-[2rem] font-semibold" x-text="$store.fmt.price($store.cart.total)"></span>
+      </div>
+      <p class="mt-1 text-[0.6875rem] font-light text-muted">Стоимость доставки сообщит менеджер</p>
+      <a href="/checkout.html" class="btn-solid mt-6 w-full">Оформить заказ</a>
+      <button type="button" class="mt-3 w-full text-center text-xs font-light text-muted underline underline-offset-4 hover:text-ink"
+              @click="$store.cart.clear()">Очистить корзину</button>
+    </aside>
+  </div>
+</main>
+
+<!-- @include layout-end.html -->
+</body>
+</html>
