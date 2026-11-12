@@ -41,7 +41,7 @@ sudo ufw allow 4173/tcp        # npm run preview, если нужен
 
 ## Стек
 
-- HTML + **Tailwind CSS 4** через сборку (Vite + `@tailwindcss/vite`)
+- HTML + **Tailwind CSS 4** через сборку (Vite + PostCSS, `@tailwindcss/postcss`)
 - **Alpine.js** — весь интерактив
 - Шрифты Cormorant Garamond и Montserrat подключены пакетами `@fontsource` (без Google Fonts CDN)
 - Без React/Vue и без роутера: каждая страница — отдельный `.html`
@@ -57,6 +57,7 @@ sudo ufw allow 4173/tcp        # npm run preview, если нужен
 | `checkout.html` | Оформление заказа: форма, состав, итог, экран «заказ принят» |
 | `favorites.html` | Избранное |
 | `contacts.html` | Контакты |
+| `tokens.html` | Служебная: все дизайн-токены, кнопки и поля во всех состояниях, проверка сборки |
 
 Фильтры каталога живут в адресе: `catalog.html?category=decor&q=свеч&sort=price-asc`,
 поэтому пункты меню и поиск из шапки ведут сразу на нужную выборку.
@@ -68,13 +69,43 @@ index.html, catalog.html, …   страницы
 partials/                     общие куски разметки (меню, шапка, подвал, карточка товара)
 src/main.js                   Alpine: хранилища и логика страниц
 src/api.js                    слой данных — единственное место, где читаются JSON
-src/styles.css                Tailwind и токены макета (цвета, шрифты)
+tailwind.config.js            дизайн-токены: цвета, шрифты, размеры текста, радиусы, тени
+postcss.config.js             подключение Tailwind к сборке
+src/input.css                 вход Tailwind: шрифты, компоненты (кнопки, поля, меню)
+src/fonts.css                 @font-face для Cormorant Garamond и Montserrat
 public/data/*.json            заглушки товаров и категорий
 public/img/logo.svg           логотип
 ```
 
 Общие куски подключаются комментарием `<!-- @include имя.html -->` — его на этапе сборки
 заменяет небольшой плагин в `vite.config.js`. Шапку и меню правим в одном месте.
+
+## Дизайн-токены
+
+Цвета, шрифты, размеры текста, радиусы и тени заданы **только** в `tailwind.config.js`.
+Значения перенесены из Figma «🌿 UI-кит · Минималистичный & Премиум» (локальные стили «Премиум/…»),
+у каждого токена в комментарии — имя стиля в Figma. Посмотреть всё разом: **`/tokens.html`**.
+
+Правило: в разметке пишем класс по смыслу, а не цвет.
+
+```html
+<button class="bg-[#4A5236]">   <!-- нельзя -->
+<button class="btn-primary">    <!-- готовый компонент -->
+<p class="text-error">          <!-- токен по смыслу -->
+```
+
+| Группа | Классы |
+|---|---|
+| Фирменные | `brand-dark`, `brand-dark-hover`, `brand-light`, `brand-gold`, `brand-gold-hover`, `brand-gold-light`, `brand-gold-soft`, … |
+| Поверхности и текст | `surface`, `surface-sand`, `ink`, `ink-muted`, `ink-placeholder`, `on-dark`, `on-dark-muted` |
+| Линии и состояния | `line`, `line-strong`, `success`, `success-soft`, `error`, `error-soft`, `disabled` |
+| Шрифты | `font-heading` (Cormorant Garamond), `font-body` (Montserrat) |
+| Текст | `text-display`, `text-h1`…`text-h3`, `text-price`, `text-lead`, `text-body`, `text-small`, `text-button`, `text-overline` |
+| Радиусы и тени | `rounded-control` / `search` / `card` / `panel` / `check`, `shadow-subtle`, `shadow-lift` |
+| Компоненты | `btn-primary`, `btn-gold`, `btn-outline`, `btn-link` (+ `btn-l`, `btn-s`), `field`, `chip`, `counter`, `eyebrow`, `demo-tag` |
+
+Исключение — SVG-иллюстрации-заглушки товаров (`partials/product-image.html`): это картинки, а не интерфейс;
+уйдут, когда появятся фото (`image_url`).
 
 ## Данные и подключение API
 
