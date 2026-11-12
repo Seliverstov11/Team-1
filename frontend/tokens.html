@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/input.css" />
+  <title>Дизайн-токены — Bakeloom</title>
+</head>
+<body data-page="tokens" class="bg-brand-light">
+<!-- Служебная страница для разработчиков: все токены из tailwind.config.js.
+     Цвета подписаны значениями, вычисленными из собранного CSS, — если сборка сломана, это сразу видно. -->
+<main class="mx-auto flex w-full max-w-[90rem] flex-col gap-14 px-10 py-12" x-data="tokensPage">
+
+  <header class="flex flex-wrap items-end justify-between gap-6">
+    <div>
+      <p class="eyebrow">Для разработчиков</p>
+      <h1 class="mt-3 font-heading text-h1 font-medium">Дизайн-токены Bakeloom</h1>
+      <p class="mt-3 max-w-[48rem] text-body text-ink-muted">
+        Всё, что можно использовать в вёрстке. Источник — <code>frontend/tailwind.config.js</code>,
+        значения перенесены из Figma «🌿 UI-кит · Минималистичный &amp; Премиум» (стили «Премиум/…»).
+        Цвет в разметке не пишем: <code class="text-error">bg-[#4A5236]</code> → <code class="text-success">bg-brand-dark</code>.
+      </p>
+    </div>
+    <div class="rounded-card border px-5 py-4 text-small" :class="check.ok ? 'border-success bg-success-soft' : 'border-error bg-error-soft'">
+      <p class="font-medium" x-text="check.ok ? '✓ Сборка Tailwind работает' : '✕ Проблема со сборкой'"></p>
+      <p class="text-xs text-ink-muted" x-text="check.text"></p>
+    </div>
+  </header>
+
+  <section>
+    <h2 class="font-heading text-h2 font-medium">Цвета</h2>
+    <p class="mt-2 text-small text-ink-muted">Префикс любой: <code>bg-</code>, <code>text-</code>, <code>border-</code>, <code>ring-</code>, <code>fill-</code>… Прозрачность — через слеш: <code>bg-brand-gold/10</code>.</p>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Фирменные</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark">
+          <div class="h-20 border-b border-line bg-brand-dark"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-dark</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Primary/Olive — основной: кнопки, меню, баннер</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-hover">
+          <div class="h-20 border-b border-line bg-brand-dark-hover"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-dark-hover</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Primary/Olive Dark — hover основной кнопки, низ градиентов</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-raised">
+          <div class="h-20 border-b border-line bg-brand-dark-raised"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-dark-raised</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">верх градиента баннера (пример главной в Figma)</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-inset">
+          <div class="h-20 border-b border-line bg-brand-dark-inset"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-dark-inset</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">плашка-иллюстрация на баннере (пример главной в Figma)</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-soft">
+          <div class="h-20 border-b border-line bg-brand-dark-soft"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-dark-soft</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Primary/Olive Soft — светлая подложка в тон основному</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-light">
+          <div class="h-20 border-b border-line bg-brand-light"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-light</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Surface/Ivory — фон страницы</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold">
+          <div class="h-20 border-b border-line bg-brand-gold"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-gold</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold — акцент, рамки, подписи-«капс»</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold-hover">
+          <div class="h-20 border-b border-line bg-brand-gold-hover"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-gold-hover</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold Dark — hover золотой кнопки</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold-light">
+          <div class="h-20 border-b border-line bg-brand-gold-light"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-gold-light</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold Light — золото на тёмном фоне, рамки при hover</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold-soft">
+          <div class="h-20 border-b border-line bg-brand-gold-soft"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-brand-gold-soft</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold Soft — подложка иконок, выделение</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Поверхности</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="surface">
+          <div class="h-20 border-b border-line bg-surface"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-surface</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Surface/White — карточки, шапка, панели</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="surface-sand">
+          <div class="h-20 border-b border-line bg-surface-sand"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-surface-sand</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Surface/Sand — вторичная подложка</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Текст</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="ink">
+          <div class="h-20 border-b border-line bg-ink"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-ink</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Text/Espresso — основной текст</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="ink-muted">
+          <div class="h-20 border-b border-line bg-ink-muted"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-ink-muted</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Text/Muted — второстепенный текст, подписи</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="ink-placeholder">
+          <div class="h-20 border-b border-line bg-ink-placeholder"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-ink-placeholder</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">плейсхолдеры полей (компонент Input в UI-ките)</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Контент на тёмном фоне</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="on-dark">
+          <div class="h-20 border-b border-line bg-on-dark"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-on-dark</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">основной текст на тёмном</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="on-dark-muted">
+          <div class="h-20 border-b border-line bg-on-dark-muted"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-on-dark-muted</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">подписи на тёмном</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="on-dark-subtle">
+          <div class="h-20 border-b border-line bg-on-dark-subtle"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-on-dark-subtle</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">подзаголовок баннера</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="on-dark-line">
+          <div class="h-20 border-b border-line bg-on-dark-line"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-on-dark-line</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">разделители на тёмном</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Линии и рамки</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="line">
+          <div class="h-20 border-b border-line bg-line"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-line</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Border/Hairline — рамки полей, разделители</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="line-strong">
+          <div class="h-20 border-b border-line bg-line-strong"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-line-strong</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">рамка чекбокса (компонент Checkbox)</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Успех</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="success">
+          <div class="h-20 border-b border-line bg-success"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-success</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Sage — «в наличии», успех</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="success-soft">
+          <div class="h-20 border-b border-line bg-success-soft"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-success-soft</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Sage Soft — фон уведомления об успехе</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Ошибка</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="error">
+          <div class="h-20 border-b border-line bg-error"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-error</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Terracotta — ошибки, «нет в наличии»</span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="error-soft">
+          <div class="h-20 border-b border-line bg-error-soft"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-error-soft</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Terracotta Soft — фон ошибки</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Неактивное</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="disabled">
+          <div class="h-20 border-b border-line bg-disabled"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-disabled</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted">Премиум/State/Disabled — неактивные кнопки и поля</span>
+          </figcaption>
+        </figure>
+      </div>
+      <h3 class="mt-8 mb-3 text-overline font-medium uppercase text-ink-muted">Подложки фото товара</h3>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="media-ingredients">
+          <div class="h-20 border-b border-line bg-media-ingredients"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-media-ingredients</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted"></span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="media-packaging">
+          <div class="h-20 border-b border-line bg-media-packaging"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-media-packaging</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted"></span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="media-decor">
+          <div class="h-20 border-b border-line bg-media-decor"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-media-decor</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted"></span>
+          </figcaption>
+        </figure>
+        <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="media-tools">
+          <div class="h-20 border-b border-line bg-media-tools"></div>
+          <figcaption class="space-y-1 p-3">
+            <code class="block text-small font-medium">bg-media-tools</code>
+            <span class="block font-mono text-xs text-ink-muted" data-hex></span>
+            <span class="block text-xs leading-snug text-ink-muted"></span>
+          </figcaption>
+        </figure>
+      </div>
+  </section>
+
+  <section>
+    <h2 class="font-heading text-h2 font-medium">Шрифты</h2>
+    <div class="mt-6 grid grid-cols-2 gap-5">
+      <div class="rounded-card bg-surface p-8">
+        <code class="text-small font-medium">font-heading</code>
+        <p class="mt-4 font-heading text-display font-light leading-none">Аа Бб 123</p>
+        <p class="mt-4 font-heading text-h3">Cormorant Garamond — заголовки, цены, логотип</p>
+        <p class="mt-2 text-xs text-ink-muted" data-stack="heading"></p>
+        <p class="mt-3 flex gap-4 font-heading text-h3"><span class="font-light">Light 300</span><span class="font-medium">Medium 500</span><span class="font-semibold">SemiBold 600</span></p>
+      </div>
+      <div class="rounded-card bg-surface p-8">
+        <code class="text-small font-medium">font-body</code>
+        <p class="mt-4 font-body text-display font-light leading-none">Аа Бб 123</p>
+        <p class="mt-4 text-body">Montserrat — основной текст, кнопки, подписи. Шрифт по умолчанию для всей страницы.</p>
+        <p class="mt-2 text-xs text-ink-muted" data-stack="body"></p>
+        <p class="mt-3 flex gap-4 text-body"><span class="font-light">Light 300</span><span>Regular 400</span><span class="font-medium">Medium 500</span><span class="font-semibold">SemiBold 600</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="font-heading text-h2 font-medium">Размеры текста</h2>
+    <p class="mt-2 text-small text-ink-muted">Стили текста «Премиум/…» из UI-кита: размер и высота строки (у «капса» — ещё разрядка).</p>
+    <div class="mt-4 rounded-card bg-surface px-8 py-2">
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="display">
+        <div><code class="text-small font-medium">text-display</code><span class="block text-xs text-ink-muted">Cormorant Garamond Light · <span data-px></span></span></div>
+        <p class="font-heading font-light text-display truncate">Натуральные ингредиенты для десертов</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="h1">
+        <div><code class="text-small font-medium">text-h1</code><span class="block text-xs text-ink-muted">Cormorant Garamond Medium · <span data-px></span></span></div>
+        <p class="font-heading font-medium text-h1 truncate">Натуральные ингредиенты для десертов</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="h2">
+        <div><code class="text-small font-medium">text-h2</code><span class="block text-xs text-ink-muted">Cormorant Garamond Medium · <span data-px></span></span></div>
+        <p class="font-heading font-medium text-h2 truncate">Натуральные ингредиенты для десертов</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="h3">
+        <div><code class="text-small font-medium">text-h3</code><span class="block text-xs text-ink-muted">Cormorant Garamond SemiBold · <span data-px></span></span></div>
+        <p class="font-heading font-semibold text-h3 truncate">Натуральные ингредиенты для десертов</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="price">
+        <div><code class="text-small font-medium">text-price</code><span class="block text-xs text-ink-muted">Cormorant Garamond SemiBold · <span data-px></span></span></div>
+        <p class="font-heading font-semibold text-price truncate">9 900 ₸</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="lead">
+        <div><code class="text-small font-medium">text-lead</code><span class="block text-xs text-ink-muted">Montserrat Light · <span data-px></span></span></div>
+        <p class="font-body font-light text-lead truncate">Натуральные ингредиенты для десертов</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="body">
+        <div><code class="text-small font-medium">text-body</code><span class="block text-xs text-ink-muted">Montserrat Regular · <span data-px></span></span></div>
+        <p class="font-body text-body truncate">Натуральные ингредиенты для десертов</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="small">
+        <div><code class="text-small font-medium">text-small</code><span class="block text-xs text-ink-muted">Montserrat Regular · <span data-px></span></span></div>
+        <p class="font-body text-small truncate">Натуральные ингредиенты для десертов</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="button">
+        <div><code class="text-small font-medium">text-button</code><span class="block text-xs text-ink-muted">Montserrat Medium, капс · <span data-px></span></span></div>
+        <p class="font-body font-medium uppercase text-button truncate">В корзину</p>
+      </div>
+      <div class="grid grid-cols-[10rem_minmax(0,1fr)] items-baseline gap-6 border-b border-line py-4" data-size="overline">
+        <div><code class="text-small font-medium">text-overline</code><span class="block text-xs text-ink-muted">Montserrat Medium, капс · <span data-px></span></span></div>
+        <p class="font-body font-medium uppercase text-overline truncate">Для кондитеров</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-2 gap-10">
+    <div>
+      <h2 class="font-heading text-h2 font-medium">Радиусы</h2>
+      <div class="mt-6 grid grid-cols-5 gap-4 rounded-card bg-surface p-8">
+        <div class="text-center"><div class="mx-auto size-24 rounded-check border-2 border-brand-gold bg-brand-gold-soft"></div><code class="mt-2 block text-small">rounded-check</code><span class="text-xs text-ink-muted" data-radius="check"></span></div>
+        <div class="text-center"><div class="mx-auto size-24 rounded-control border-2 border-brand-gold bg-brand-gold-soft"></div><code class="mt-2 block text-small">rounded-control</code><span class="text-xs text-ink-muted" data-radius="control"></span></div>
+        <div class="text-center"><div class="mx-auto size-24 rounded-search border-2 border-brand-gold bg-brand-gold-soft"></div><code class="mt-2 block text-small">rounded-search</code><span class="text-xs text-ink-muted" data-radius="search"></span></div>
+        <div class="text-center"><div class="mx-auto size-24 rounded-card border-2 border-brand-gold bg-brand-gold-soft"></div><code class="mt-2 block text-small">rounded-card</code><span class="text-xs text-ink-muted" data-radius="card"></span></div>
+        <div class="text-center"><div class="mx-auto size-24 rounded-panel border-2 border-brand-gold bg-brand-gold-soft"></div><code class="mt-2 block text-small">rounded-panel</code><span class="text-xs text-ink-muted" data-radius="panel"></span></div>
+      </div>
+    </div>
+    <div>
+      <h2 class="font-heading text-h2 font-medium">Тени</h2>
+      <div class="mt-6 grid grid-cols-2 gap-8 rounded-card bg-brand-light p-2">
+        <div class="rounded-card bg-surface p-8 shadow-subtle"><code class="text-small font-medium">shadow-subtle</code><p class="mt-1 text-xs text-ink-muted">Shadow Subtle — спокойная подложка</p></div>
+        <div class="rounded-card bg-surface p-8 shadow-lift"><code class="text-small font-medium">shadow-lift</code><p class="mt-1 text-xs text-ink-muted">Shadow Lift — карточка при наведении</p></div>
+      </div>
+      <p class="mt-4 text-small text-ink-muted">Отступы: своих в UI-ките нет — стандартная шкала Tailwind (<code>p-4</code>, <code>gap-5</code>…).</p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="font-heading text-h2 font-medium">Кнопки</h2>
+    <p class="mt-2 text-small text-ink-muted">Размер по умолчанию M — 44px. Модификаторы: <code>btn-l</code> — 52px, <code>btn-s</code> — 34px.</p>
+    <div class="mt-6 rounded-card bg-surface px-8 py-2">
+      <table class="w-full">
+        <thead><tr class="border-b border-line text-left text-overline font-medium uppercase text-ink-muted">
+          <th class="py-3 font-medium">Тип</th><th class="py-3 font-medium">Обычная</th><th class="py-3 font-medium">Наведение</th><th class="py-3 font-medium">Неактивная</th>
+        </tr></thead>
+        <tbody>
+        <tr class="border-b border-line">
+          <th class="py-4 pr-6 text-left align-middle"><code class="text-small font-medium">btn-primary</code><span class="block text-xs font-normal text-ink-muted">Основное действие</span></th>
+          <td class="py-4 pr-4"><button type="button" class="btn-primary">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-primary is-hover">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-primary" disabled>В корзину</button></td>
+        </tr>
+        <tr class="border-b border-line">
+          <th class="py-4 pr-6 text-left align-middle"><code class="text-small font-medium">btn-gold</code><span class="block text-xs font-normal text-ink-muted">Акцентное действие</span></th>
+          <td class="py-4 pr-4"><button type="button" class="btn-gold">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-gold is-hover">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-gold" disabled>В корзину</button></td>
+        </tr>
+        <tr class="border-b border-line">
+          <th class="py-4 pr-6 text-left align-middle"><code class="text-small font-medium">btn-outline</code><span class="block text-xs font-normal text-ink-muted">Второстепенное</span></th>
+          <td class="py-4 pr-4"><button type="button" class="btn-outline">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-outline is-hover">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-outline" disabled>В корзину</button></td>
+        </tr>
+        <tr class="border-b border-line">
+          <th class="py-4 pr-6 text-left align-middle"><code class="text-small font-medium">btn-link</code><span class="block text-xs font-normal text-ink-muted">Текстовая ссылка-кнопка</span></th>
+          <td class="py-4 pr-4"><button type="button" class="btn-link">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-link is-hover">В корзину</button></td>
+          <td class="py-4 pr-4"><button type="button" class="btn-link" disabled>В корзину</button></td>
+        </tr>
+        </tbody>
+      </table>
+      <div class="flex items-center gap-4 border-t border-line py-5">
+        <span class="w-40 text-small text-ink-muted">Размеры</span>
+        <button type="button" class="btn-primary btn-l">L · 52</button>
+        <button type="button" class="btn-primary">M · 44</button>
+        <button type="button" class="btn-primary btn-s">S · 34</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="font-heading text-h2 font-medium">Поля ввода</h2>
+    <div class="mt-6 grid grid-cols-5 gap-5 rounded-card bg-surface p-8">
+      <label class="flex flex-col gap-2"><span class="text-small">Обычное</span><input class="field" placeholder="Как к вам обращаться" /><code class="text-xs text-ink-muted">field</code></label>
+      <label class="flex flex-col gap-2"><span class="text-small">Фокус</span><input class="field is-focus" placeholder="Как к вам обращаться" /><code class="text-xs text-ink-muted">field:focus</code></label>
+      <label class="flex flex-col gap-2"><span class="text-small">Заполнено</span><input class="field" value="Айгерим" /><code class="text-xs text-ink-muted">field</code></label>
+      <label class="flex flex-col gap-2"><span class="text-small">Ошибка</span><input class="field is-invalid" value="+7 (701) 12" /><span class="field-error">Номер в формате +7 (7XX) XXX-XX-XX</span><code class="text-xs text-ink-muted">field is-invalid</code></label>
+      <label class="flex flex-col gap-2"><span class="text-small">Неактивно</span><input class="field" placeholder="Недоступно" disabled /><code class="text-xs text-ink-muted">field:disabled</code></label>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="font-heading text-h2 font-medium">Мелкие элементы</h2>
+    <div class="mt-6 flex flex-wrap items-center gap-8 rounded-card bg-surface p-8">
+      <div class="flex items-center gap-2"><button type="button" class="chip">Декор</button><button type="button" class="chip is-active">Упаковка</button><code class="text-xs text-ink-muted">chip / chip is-active</code></div>
+      <div class="flex items-center gap-2"><span class="counter">3</span><code class="text-xs text-ink-muted">counter</code></div>
+      <div class="flex items-center gap-2"><span class="demo-tag">Демо</span><code class="text-xs text-ink-muted">demo-tag</code></div>
+      <div class="flex items-center gap-2"><span class="eyebrow">Для кондитеров</span><code class="text-xs text-ink-muted">eyebrow</code></div>
+      <label class="flex items-center gap-2 text-small"><input type="checkbox" checked class="size-[1.125rem] rounded-check accent-brand-dark" /> Чекбокс <code class="text-xs text-ink-muted">accent-brand-dark</code></label>
+      <label class="flex items-center gap-2 text-small"><input type="radio" checked class="accent-brand-dark" /> Радио</label>
+      <p class="text-small text-success">В наличии: 24 шт</p>
+      <p class="text-small text-error">Нет в наличии</p>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+  import config from '/tailwind.config.js'
+  import Alpine from 'alpinejs'
+
+  const toHex = rgb => {
+    const c = document.createElement('canvas').getContext('2d')
+    c.fillStyle = rgb
+    c.fillRect(0, 0, 1, 1)
+    const [r, g, b] = c.getImageData(0, 0, 1, 1).data
+    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase()
+  }
+
+  Alpine.data('tokensPage', () => ({
+    check: { ok: true, text: '' },
+    init() {
+      const ext = config.theme.extend
+      // Цвет каждой плашки — из собранного CSS, а не из конфига: так видно, что класс реально сгенерирован
+      const expected = Object.entries(ext.colors).flatMap(([g, v]) =>
+        typeof v === 'string' ? [[g, v]] : Object.entries(v).map(([k, x]) => [k === 'DEFAULT' ? g : `${g}-${k}`, x]))
+      const problems = []
+      for (const [name, value] of expected) {
+        const card = document.querySelector(`[data-token="${name}"]`)
+        if (!card) { problems.push(`нет плашки ${name}`); continue }
+        const built = toHex(getComputedStyle(card.firstElementChild).backgroundColor)
+        card.querySelector('[data-hex]').textContent = built
+        if (built !== value.toUpperCase()) problems.push(`${name}: в CSS ${built}, в конфиге ${value}`)
+      }
+      document.querySelectorAll('[data-size]').forEach(el => {
+        const p = getComputedStyle(el.querySelector('p'))
+        el.querySelector('[data-px]').textContent = `${parseFloat(p.fontSize)} / ${Math.round(parseFloat(p.lineHeight))} px`
+      })
+      document.querySelectorAll('[data-radius]').forEach(el => {
+        el.textContent = getComputedStyle(el.parentElement.firstElementChild).borderTopLeftRadius
+      })
+      document.querySelectorAll('[data-stack]').forEach(el => {
+        el.textContent = 'Fallback: ' + ext.fontFamily[el.dataset.stack].join(', ')
+      })
+      this.check = problems.length
+        ? { ok: false, text: problems.join('; ') }
+        : { ok: true, text: `${expected.length} цветов из tailwind.config.js совпадают с собранным CSS` }
+    },
+  }))
+  Alpine.start()
+</script>
+</body>
+</html>

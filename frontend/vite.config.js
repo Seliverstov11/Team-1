@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('.', import.meta.url))
 const partialsDir = resolve(root, 'partials')
 
 // Страницы — отдельные .html файлы (без роутера)
-const pages = ['index', 'catalog', 'product', 'cart', 'checkout', 'favorites', 'contacts']
+const pages = ['index', 'catalog', 'product', 'cart', 'checkout', 'favorites', 'contacts', 'tokens']
 
 // Общие куски разметки (шапка, меню, подвал, карточка товара) подставляются при сборке:
 // <!-- @include имя.html --> → содержимое partials/имя.html
