@@ -1,12 +1,12 @@
-<div class="flex h-9 items-center justify-between rounded-[0.625rem] bg-ivory px-1" x-show="$store.cart.left(p) > 0">
+<div class="flex h-9 items-center justify-between rounded-control bg-brand-light px-1" x-show="$store.cart.left(p) > 0">
   <button type="button" @click="n = Math.max(1, n - 1)" :disabled="n <= 1" aria-label="Меньше"
-          class="grid size-7 place-items-center rounded-lg text-base transition enabled:hover:bg-white disabled:text-hint">−</button>
+          class="grid size-7 place-items-center rounded-lg text-base transition enabled:hover:bg-surface disabled:text-ink-placeholder">−</button>
   <span class="text-[0.8125rem] font-medium" x-text="`${Math.min(n, $store.cart.left(p))} ${p.unit}`"></span>
   <button type="button" @click="n = Math.min(n + 1, $store.cart.left(p))" :disabled="n >= $store.cart.left(p)" aria-label="Больше"
-          class="grid size-7 place-items-center rounded-lg text-base transition enabled:hover:bg-white disabled:text-hint">+</button>
+          class="grid size-7 place-items-center rounded-lg text-base transition enabled:hover:bg-surface disabled:text-ink-placeholder">+</button>
 </div>
 <button type="button" class="mt-2.5 w-full" :disabled="$store.cart.left(p) < 1"
-        :class="$store.cart.qty(p.id) ? 'btn-solid' : 'btn-outline'"
+        :class="$store.cart.qty(p.id) ? 'btn-primary' : 'btn-outline'"
         @click="$store.cart.add(p, Math.min(n, $store.cart.left(p))); n = 1">
   <span x-show="!$store.cart.qty(p.id)" x-text="$store.shop.stock(p) ? 'В корзину' : 'Нет в наличии'"></span>
   <span x-show="$store.cart.qty(p.id) && $store.cart.left(p) > 0" x-text="`Ещё · в корзине ${$store.cart.qty(p.id)}`"></span>

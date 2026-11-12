@@ -9,23 +9,23 @@
 
 <main class="vt-content flex flex-col gap-8">
   <!-- Баннер -->
-  <section class="overflow-hidden rounded-3xl bg-linear-to-br from-olive-2 to-olive-deep">
+  <section class="overflow-hidden rounded-panel bg-linear-to-br from-brand-dark-raised to-brand-dark-hover">
     <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-10 py-14 pl-[clamp(2rem,4vw,3.5rem)] pr-10">
       <div class="max-w-[35rem]">
         <p class="eyebrow">Для кондитеров</p>
-        <h1 class="mt-5 font-serif text-[clamp(2.5rem,3.6vw,3.25rem)] font-light leading-[1.15] text-ivory">
+        <h1 class="mt-5 font-heading text-[clamp(2.5rem,3.6vw,3.25rem)] font-light leading-[1.15] text-brand-light">
           Натуральные ингредиенты для&nbsp;изысканных десертов
         </h1>
-        <p class="mt-5 max-w-[26rem] text-[0.9375rem] font-light leading-relaxed text-[#c9c9b4]">
+        <p class="mt-5 max-w-[26rem] text-[0.9375rem] font-light leading-relaxed text-on-dark-subtle">
           Ингредиенты, упаковка, декор и инструменты — всё для кондитерской в одном каталоге
         </p>
-        <a href="/catalog.html" class="caps mt-8 inline-flex h-11 items-center gap-3 rounded-[0.625rem] border border-gold px-6 text-xs text-gold-soft transition hover:bg-gold/10">
+        <a href="/catalog.html" class="caps mt-8 inline-flex h-11 items-center gap-3 rounded-control border border-brand-gold px-6 text-xs text-brand-gold-light transition hover:bg-brand-gold/10">
           Смотреть каталог
           <svg class="size-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m6 3 5 5-5 5"/></svg>
         </a>
       </div>
-      <div class="hidden rounded-[1.75rem] border border-gold/70 p-4 min-[75rem]:block" aria-hidden="true">
-        <div class="grid aspect-square w-[min(18.75rem,24vw)] place-items-center rounded-2xl bg-[#555e40]">
+      <div class="hidden rounded-panel border border-brand-gold/70 p-4 min-[75rem]:block" aria-hidden="true">
+        <div class="grid aspect-square w-[min(18.75rem,24vw)] place-items-center rounded-2xl bg-brand-dark-inset">
           <svg viewBox="0 0 200 170" class="w-[63%]">
             <rect x="20" y="24" width="140" height="68" rx="4" fill="#5a3326"/>
             <path d="M66 24v68M113 24v68M20 58h140" stroke="#47271d" stroke-width="3"/>
@@ -43,12 +43,12 @@
   <section aria-label="Категории" class="grid grid-cols-4 gap-5">
     <template x-for="c in $store.shop.categories" :key="c.id">
       <a :href="`/catalog.html?category=${c.slug}`"
-         class="card flex flex-col items-center border border-transparent px-4 py-7 transition hover:border-gold-soft">
-        <span class="grid size-16 place-items-center rounded-full border border-gold-soft bg-chip text-ink">
+         class="card flex flex-col items-center border border-transparent px-4 py-7 transition hover:border-brand-gold-light">
+        <span class="grid size-16 place-items-center rounded-full border border-brand-gold-light bg-brand-gold-soft text-ink">
           <!-- @include category-icon.html -->
         </span>
         <span class="caps mt-5 text-[0.6875rem] tracking-[0.18em]" x-text="c.name"></span>
-        <span class="mt-2 text-xs font-light text-muted"
+        <span class="mt-2 text-xs font-light text-ink-muted"
               x-text="`${$store.shop.countIn(c.id)} ${$store.fmt.plural($store.shop.countIn(c.id), 'позиция', 'позиции', 'позиций')}`"></span>
       </a>
     </template>
@@ -59,9 +59,9 @@
     <div class="mb-8 flex items-end justify-between gap-6">
       <div>
         <p class="eyebrow">Демо-подборка</p>
-        <h2 class="mt-3 font-serif text-[2.5rem] font-medium leading-none">Популярные товары</h2>
+        <h2 class="mt-3 font-heading text-[2.5rem] font-medium leading-none">Популярные товары</h2>
       </div>
-      <a href="/catalog.html" class="caps border-b border-ink pb-0.5 text-[0.625rem] tracking-[0.18em] hover:text-gold">Весь каталог</a>
+      <a href="/catalog.html" class="caps border-b border-ink pb-0.5 text-[0.625rem] tracking-[0.18em] hover:text-brand-gold">Весь каталог</a>
     </div>
     <!-- @include loading.html -->
     <!-- @include product-grid.html -->

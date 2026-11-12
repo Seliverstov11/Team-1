@@ -1,17 +1,17 @@
-<article x-data="{ n: 1 }" class="flex flex-col rounded-[1.125rem] border border-transparent bg-white p-2.5 transition hover:border-gold-soft hover:shadow-[0_12px_30px_-18px_rgba(43,38,32,.35)]">
+<article x-data="{ n: 1 }" class="flex flex-col rounded-card border border-transparent bg-surface p-2.5 transition hover:border-brand-gold-light hover:shadow-lift">
   <div class="relative aspect-[227/200] overflow-hidden rounded-xl">
     <a :href="`/product.html?id=${p.id}`" class="absolute inset-0" :aria-label="p.name"><!-- @include product-image.html --></a>
-    <span class="demo-tag absolute left-2.5 top-2.5 border-none bg-white/90">Демо</span>
+    <span class="demo-tag absolute left-2.5 top-2.5 border-none bg-surface/90">Демо</span>
     <div class="absolute right-2.5 top-2.5"><!-- @include fav-button.html --></div>
   </div>
   <div class="flex flex-1 flex-col px-2 pb-2 pt-4 text-center">
-    <p class="caps text-[0.5625rem] tracking-[0.18em] text-gold" x-text="$store.shop.category(p.category_id).name"></p>
+    <p class="caps text-[0.5625rem] tracking-[0.18em] text-brand-gold" x-text="$store.shop.category(p.category_id).name"></p>
     <h3 class="mt-1.5 min-h-[2.6rem] text-sm leading-snug">
-      <a :href="`/product.html?id=${p.id}`" class="hover:text-gold" x-text="p.name"></a>
+      <a :href="`/product.html?id=${p.id}`" class="hover:text-brand-gold" x-text="p.name"></a>
     </h3>
-    <p class="mt-1 text-[0.625rem] tracking-wider text-hint" x-text="`Арт. ${p.sku}`"></p>
-    <p class="mt-2 font-serif text-2xl font-semibold leading-none" x-text="$store.fmt.price(p.price)"></p>
-    <p class="mt-2 text-xs font-light" :class="$store.shop.stock(p) ? 'text-[#5f7a4a]' : 'text-[#b4664a]'"
+    <p class="mt-1 text-[0.625rem] tracking-wider text-ink-placeholder" x-text="`Арт. ${p.sku}`"></p>
+    <p class="mt-2 font-heading text-2xl font-semibold leading-none" x-text="$store.fmt.price(p.price)"></p>
+    <p class="mt-2 text-xs font-light" :class="$store.shop.stock(p) ? 'text-success' : 'text-error'"
        x-text="$store.shop.stock(p) ? `В наличии: ${$store.shop.stock(p)} ${p.unit}` : 'Нет в наличии'"></p>
     <div class="mt-auto pt-4"><!-- @include buy-box.html --></div>
   </div>

@@ -8,19 +8,19 @@
 <!-- @include layout-start.html -->
 
 <main x-data="productPage" x-effect="if (p) document.title = `${p.name} — Bakeloom`" class="vt-content flex flex-col gap-6">
-  <nav class="text-xs font-light text-muted" aria-label="Хлебные крошки">
-    <a href="/" class="hover:text-gold">Главная</a> <span class="mx-1.5">/</span>
-    <a href="/catalog.html" class="hover:text-gold">Каталог</a>
+  <nav class="text-xs font-light text-ink-muted" aria-label="Хлебные крошки">
+    <a href="/" class="hover:text-brand-gold">Главная</a> <span class="mx-1.5">/</span>
+    <a href="/catalog.html" class="hover:text-brand-gold">Каталог</a>
     <template x-if="p">
-      <span><span class="mx-1.5">/</span><a :href="`/catalog.html?category=${$store.shop.category(p.category_id).slug}`" class="hover:text-gold" x-text="$store.shop.category(p.category_id).name"></a></span>
+      <span><span class="mx-1.5">/</span><a :href="`/catalog.html?category=${$store.shop.category(p.category_id).slug}`" class="hover:text-brand-gold" x-text="$store.shop.category(p.category_id).name"></a></span>
     </template>
   </nav>
 
   <!-- @include loading.html -->
 
   <div x-show="$store.shop.ready && !$store.shop.error && !p" x-cloak class="card px-8 py-14 text-center">
-    <p class="font-serif text-[1.625rem]">Товар не найден</p>
-    <p class="mt-2 text-sm font-light text-muted">Возможно, ссылка устарела</p>
+    <p class="font-heading text-[1.625rem]">Товар не найден</p>
+    <p class="mt-2 text-sm font-light text-ink-muted">Возможно, ссылка устарела</p>
     <a href="/catalog.html" class="btn-outline mt-6">Перейти в каталог</a>
   </div>
 
@@ -29,24 +29,24 @@
       <section class="card grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-[clamp(1.5rem,4vw,3.5rem)] p-5">
         <div class="relative aspect-square overflow-hidden rounded-2xl">
           <!-- @include product-image.html -->
-          <span class="demo-tag absolute left-4 top-4 border-none bg-white/90">Демо-товар</span>
+          <span class="demo-tag absolute left-4 top-4 border-none bg-surface/90">Демо-товар</span>
         </div>
 
         <div class="flex flex-col py-4 pr-4" x-data="{ n: 1 }">
-          <p class="caps text-[0.625rem] tracking-[0.18em] text-gold" x-text="$store.shop.category(p.category_id).name"></p>
-          <h1 class="mt-3 font-serif text-[clamp(2rem,2.6vw,2.75rem)] font-medium leading-tight" x-text="p.name"></h1>
-          <p class="mt-2 text-xs tracking-wider text-hint" x-text="`Арт. ${p.sku}`"></p>
+          <p class="caps text-[0.625rem] tracking-[0.18em] text-brand-gold" x-text="$store.shop.category(p.category_id).name"></p>
+          <h1 class="mt-3 font-heading text-[clamp(2rem,2.6vw,2.75rem)] font-medium leading-tight" x-text="p.name"></h1>
+          <p class="mt-2 text-xs tracking-wider text-ink-placeholder" x-text="`Арт. ${p.sku}`"></p>
 
-          <p class="mt-8 font-serif text-[2.5rem] font-semibold leading-none" x-text="$store.fmt.price(p.price)"></p>
-          <p class="mt-1 text-xs font-light text-muted" x-text="`за 1 ${p.unit}`"></p>
+          <p class="mt-8 font-heading text-[2.5rem] font-semibold leading-none" x-text="$store.fmt.price(p.price)"></p>
+          <p class="mt-1 text-xs font-light text-ink-muted" x-text="`за 1 ${p.unit}`"></p>
 
           <dl class="mt-8 grid grid-cols-[auto_1fr] gap-x-8 gap-y-3 border-y border-line py-5 text-sm">
-            <dt class="font-light text-muted">Фасовка</dt>
+            <dt class="font-light text-ink-muted">Фасовка</dt>
             <dd x-text="pack ?? p.unit"></dd>
-            <dt class="font-light text-muted">Единица продажи</dt>
+            <dt class="font-light text-ink-muted">Единица продажи</dt>
             <dd x-text="p.unit"></dd>
-            <dt class="font-light text-muted">Наличие</dt>
-            <dd :class="$store.shop.stock(p) ? 'text-[#5f7a4a]' : 'text-[#b4664a]'"
+            <dt class="font-light text-ink-muted">Наличие</dt>
+            <dd :class="$store.shop.stock(p) ? 'text-success' : 'text-error'"
                 x-text="$store.shop.stock(p) ? `В наличии: ${$store.shop.stock(p)} ${p.unit}` : 'Нет в наличии'"></dd>
           </dl>
 
@@ -57,24 +57,24 @@
             <!-- @include fav-button.html -->
             <span x-text="$store.fav.has(p.id) ? 'В избранном' : 'Добавить в избранное'"></span>
           </div>
-          <a href="/cart.html" x-show="$store.cart.qty(p.id)" x-cloak class="mt-4 text-[0.8125rem] underline underline-offset-4 hover:text-gold"
+          <a href="/cart.html" x-show="$store.cart.qty(p.id)" x-cloak class="mt-4 text-[0.8125rem] underline underline-offset-4 hover:text-brand-gold"
              x-text="`В корзине: ${$store.cart.qty(p.id)} ${p.unit} — перейти в корзину`"></a>
         </div>
       </section>
 
       <section class="card px-8 py-7">
         <div class="flex items-center gap-3">
-          <h2 class="font-serif text-[1.75rem] font-medium">Описание</h2>
+          <h2 class="font-heading text-[1.75rem] font-medium">Описание</h2>
           <span class="demo-tag">Заглушка</span>
         </div>
-        <p class="mt-3 max-w-[48rem] text-sm font-light leading-relaxed text-muted">
+        <p class="mt-3 max-w-[48rem] text-sm font-light leading-relaxed text-ink-muted">
           Описание товара появится после подключения каталога заказчика. Сейчас в данных есть только
           название, артикул, цена, единица продажи и остаток.
         </p>
       </section>
 
       <section x-show="related.length" x-data="{ get products() { return related } }">
-        <h2 class="mb-6 font-serif text-[2rem] font-medium">Ещё в категории</h2>
+        <h2 class="mb-6 font-heading text-[2rem] font-medium">Ещё в категории</h2>
         <!-- @include product-grid.html -->
       </section>
     </div>

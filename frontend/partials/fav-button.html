@@ -1,9 +1,9 @@
 <button type="button" @click="$store.fav.toggle(p.id)"
-        class="grid size-8 place-items-center rounded-full bg-white transition hover:scale-105"
+        class="grid size-8 place-items-center rounded-full bg-surface transition hover:scale-105"
         :aria-pressed="$store.fav.has(p.id)"
         :aria-label="$store.fav.has(p.id) ? 'Убрать из избранного' : 'В избранное'">
-  <svg class="size-4" viewBox="0 0 24 24" stroke-width="1.6"
-       :fill="$store.fav.has(p.id) ? '#b8975a' : 'none'" :stroke="$store.fav.has(p.id) ? '#b8975a' : '#2b2620'">
+  <svg class="size-4" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"
+       :class="$store.fav.has(p.id) ? 'fill-current text-brand-gold' : 'fill-none text-ink'">
     <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/>
   </svg>
 </button>
