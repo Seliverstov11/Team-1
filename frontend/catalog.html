@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include head.html -->
+  <title>Каталог — Bakeloom</title>
+</head>
+<body data-page="catalog">
+<!-- @include layout-start.html -->
+
+<main x-data="catalogPage" class="vt-content flex flex-col gap-6">
+  <nav class="text-xs font-light text-muted" aria-label="Хлебные крошки">
+    <a href="/" class="hover:text-gold">Главная</a> <span class="mx-1.5">/</span> <span class="text-ink">Каталог</span>
+  </nav>
+
+  <div class="flex items-end justify-between gap-6">
+    <div>
+      <p class="eyebrow">Демо-ассортимент</p>
+      <h1 class="mt-3 font-serif text-[2.5rem] font-medium leading-none" x-text="categoryName">Все товары</h1>
+    </div>
+    <p class="pb-1 text-[0.8125rem] font-light text-muted" x-show="$store.shop.ready"
+       x-text="`Найдено: ${list.length}`"></p>
+  </div>
+
+  <!-- Панель фильтров -->
+  <div class="card flex flex-wrap items-center gap-3 px-4 py-3">
+    <div class="flex flex-wrap gap-2" role="group" aria-label="Категория">
+      <button type="button" class="chip" :class="!category && 'is-active'" @click="category = ''">Все</button>
+      <template x-for="c in $store.shop.categories" :key="c.id">
+        <button type="button" class="chip" :class="category === c.slug && 'is-active'" :aria-pressed="category === c.slug"
+                @click="category = category === c.slug ? '' : c.slug" x-text="c.name"></button>
+      </template>
+    </div>
+
+    <div class="ml-auto flex items-center gap-4">
+      <button type="button" x-show="hasFilters" x-cloak @click="reset()"
+              class="caps border-b border-ink pb-0.5 text-[0.625rem] tracking-[0.18em]">Сбросить</button>
+      <label class="flex items-center gap-2 text-[0.8125rem] font-light text-muted">
+        Сортировка
+        <select x-model="sort" class="h-10 rounded-[0.625rem] border border-line bg-ivory px-3 text-[0.8125rem] text-ink outline-none focus:border-gold">
+          <option value="">По умолчанию</option>
+          <option value="price-asc">Сначала дешевле</option>
+          <option value="price-desc">Сначала дороже</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <p x-show="$store.search.q.trim()" x-cloak class="-mt-2 text-[0.8125rem] font-light text-muted">
+    Поиск: «<span class="text-ink" x-text="$store.search.q.trim()"></span>» — строка поиска в шапке
+  </p>
+
+  <!-- @include loading.html -->
+
+  <div x-show="$store.shop.ready && !$store.shop.error && !list.length" x-cloak class="card px-8 py-14 text-center">
+    <p class="font-serif text-[1.625rem]">Ничего не нашлось</p>
+    <p class="mt-2 text-sm font-light text-muted">Попробуйте изменить запрос или выбрать другую категорию</p>
+    <button type="button" class="btn-outline mt-6" @click="reset()">Показать все товары</button>
+  </div>
+
+  <div x-data="{ get products() { return list } }">
+    <!-- @include product-grid.html -->
+  </div>
+</main>
+
+<!-- @include layout-end.html -->
+</body>
+</html>
