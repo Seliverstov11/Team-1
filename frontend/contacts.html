@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include head.html -->
+  <title>Контакты — Bakeloom</title>
+</head>
+<body data-page="contacts">
+<!-- @include layout-start.html -->
+
+<main class="vt-content flex flex-col gap-6">
+  <nav class="text-xs font-light text-muted" aria-label="Хлебные крошки">
+    <a href="/" class="hover:text-gold">Главная</a> <span class="mx-1.5">/</span> <span class="text-ink">Контакты</span>
+  </nav>
+  <div class="flex items-center gap-4">
+    <h1 class="font-serif text-[2.5rem] font-medium leading-none">Контакты</h1>
+    <span class="demo-tag">Демо-данные</span>
+  </div>
+  <p class="-mt-2 max-w-[44rem] text-sm font-light text-muted">
+    Все данные на этой странице — заглушки. Заменим на настоящие, когда заказчик их подтвердит.
+  </p>
+
+  <section class="grid grid-cols-2 gap-5">
+    <div class="card p-8">
+      <p class="eyebrow">Адрес</p>
+      <p class="mt-4 font-serif text-[1.625rem] font-medium leading-snug">Адрес уточняется</p>
+      <p class="mt-2 text-sm font-light text-muted">Казахстан</p>
+    </div>
+    <div class="card p-8">
+      <p class="eyebrow">Телефон</p>
+      <p class="mt-4 font-serif text-[1.625rem] font-medium">+7 (700) 000-00-00</p>
+      <p class="mt-2 text-sm font-light text-muted">info@example.kz</p>
+    </div>
+    <div class="card p-8">
+      <p class="eyebrow">Режим работы</p>
+      <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
+        <dt class="font-light text-muted">Понедельник — воскресенье</dt><dd>9:00 — 21:00</dd>
+      </dl>
+    </div>
+    <div class="card p-8">
+      <p class="eyebrow">Как с нами связаться</p>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li>Позвонить по телефону в часы работы</li>
+        <li>Написать на электронную почту</li>
+        <li>Оставить комментарий при <a href="/cart.html" class="underline underline-offset-4 hover:text-gold">оформлении заказа</a> — менеджер перезвонит</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<!-- @include layout-end.html -->
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include head.html -->
+  <title>Избранное — Bakeloom</title>
+</head>
+<body data-page="favorites">
+<!-- @include layout-start.html -->
+
+<main x-data="{ get products() { return $store.shop.products.filter(p => $store.fav.has(p.id)) } }" class="vt-content flex flex-col gap-6">
+  <nav class="text-xs font-light text-muted" aria-label="Хлебные крошки">
+    <a href="/" class="hover:text-gold">Главная</a> <span class="mx-1.5">/</span> <span class="text-ink">Избранное</span>
+  </nav>
+  <div class="flex items-end justify-between gap-6">
+    <h1 class="font-serif text-[2.5rem] font-medium leading-none">Избранное</h1>
+    <p class="pb-1 text-[0.8125rem] font-light text-muted" x-show="products.length"
+       x-text="`${products.length} ${$store.fmt.plural(products.length, 'товар', 'товара', 'товаров')}`"></p>
+  </div>
+
+  <!-- @include loading.html -->
+
+  <div x-show="$store.shop.ready && !products.length" x-cloak class="card px-8 py-14 text-center">
+    <p class="font-serif text-[1.625rem]">Здесь пока пусто</p>
+    <p class="mt-2 text-sm font-light text-muted">Отмечайте товары сердечком — они появятся на этой странице</p>
+    <a href="/catalog.html" class="btn-solid mt-6">Перейти в каталог</a>
+  </div>
+
+  <!-- @include product-grid.html -->
+</main>
+
+<!-- @include layout-end.html -->
+</body>
+</html>
