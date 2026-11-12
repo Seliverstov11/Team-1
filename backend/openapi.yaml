@@ -1,0 +1,415 @@
+openapi: "3.0.3"
+info:
+  title: Сладкий Мастер API
+  version: "0.1.0"
+  description: |
+    REST API интернет-магазина товаров для кондитеров.
+    На этом контракте строятся сайт, CRM и мобильная практика (H7).
+
+    Деньги и количества передаются строкой — «1880.00», «2.500».
+    Строкой, а не числом, чтобы JSON-парсер не превратил их во float
+    и не вернул 1879.9999999998. Валюта — тенге.
+
+    Товары с префиксом [ДЕМО] — тестовые данные, не ассортимент заказчика.
+
+servers:
+  - url: http://localhost:8080
+    description: Локальная разработка
+
+tags:
+  - name: catalog
+    description: Каталог — публичная часть, нужна сайту
+  - name: orders
+    description: Заказы — рабочее место менеджера
+  - name: warehouse
+    description: Склад — рабочее место кладовщика
+
+paths:
+  /health:
+    get:
+      summary: Проверка живости
+      responses:
+        "200":
+          description: Сервис отвечает
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /api/catalog/categories:
+    get:
+      tags: [catalog]
+      summary: Список категорий
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Category" }
+
+  /api/catalog/products:
+    get:
+      tags: [catalog]
+      summary: Список товаров
+      description: Архивные товары не отдаются никогда.
+      parameters:
+        - name: category_id
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          description: Поиск по названию или артикулу
+          schema: { type: string }
+        - name: in_stock
+          in: query
+          description: true — только то, что доступно к заказу
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Product" }
+
+  /api/catalog/products/{id}:
+    get:
+      tags: [catalog]
+      summary: Товар по идентификатору
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+        "404":
+          description: Не найден
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/orders:
+    get:
+      tags: [orders]
+      summary: Список заказов
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, confirmed, assembling, ready, delivered, cancelled]
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Order" }
+
+    post:
+      tags: [orders]
+      summary: Создать заказ
+      description: |
+        Резервирует остатки одной транзакцией. Если хотя бы одной позиции
+        не хватает, не резервируется ничего и заказ не создаётся —
+        два одновременных заказа не уведут остаток в минус.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateOrder" }
+      responses:
+        "200":
+          description: Заказ создан
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderDetail" }
+        "400":
+          description: Пустой заказ, нет товара или не хватает остатка
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                error: "«Шоколад тёмный 54%»: доступно 21.500, запрошено 30"
+
+  /api/orders/{id}:
+    get:
+      tags: [orders]
+      summary: Заказ с составом
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderDetail" }
+        "404":
+          description: Не найден
+
+    patch:
+      tags: [orders]
+      summary: Сменить статус заказа
+      description: |
+        `cancelled` снимает резерв, склад не трогает.
+        `delivered` списывает остаток и снимает резерв.
+        Повторный перевод в тот же статус склад не меняет.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateOrderStatus" }
+      responses:
+        "200":
+          description: Статус изменён
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "400":
+          description: Неизвестный статус
+        "404":
+          description: Не найден
+
+  /api/warehouse/stock:
+    get:
+      tags: [warehouse]
+      summary: Остатки по всем товарам
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockLevel" }
+
+  /api/warehouse/movements:
+    get:
+      tags: [warehouse]
+      summary: Журнал движений, последние 200
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Movement" }
+
+    post:
+      tags: [warehouse]
+      summary: Приход или корректировка
+      description: |
+        Резервом отсюда управлять нельзя — он живёт по заказам.
+        Остаток не опустится ниже нуля и ниже уже зарезервированного.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateMovement" }
+      responses:
+        "200":
+          description: Движение записано
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Movement" }
+        "400":
+          description: Неверный тип или остаток уйдёт в минус
+        "404":
+          description: Товар не найден
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+
+    Category:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string, example: "Ингредиенты" }
+        slug: { type: string, example: "ingredients" }
+        parent_id: { type: string, nullable: true }
+        sort_order: { type: integer }
+        created_at: { type: string, example: "2026-11-12T10:00:00Z" }
+
+    Product:
+      type: object
+      properties:
+        id: { type: string }
+        category_id: { type: string }
+        name: { type: string, example: "Шоколад тёмный 54%, каллеты" }
+        sku: { type: string, nullable: true, example: "CB-54-1KG" }
+        description: { type: string, nullable: true }
+        price:
+          type: string
+          example: "1880.00"
+          description: Тенге, строкой
+        unit: { type: string, example: "кг" }
+        is_weight:
+          type: boolean
+          description: true — продаётся на вес, количество может быть дробным
+        stock_qty: { type: string, example: "24.000" }
+        available_qty:
+          type: string
+          example: "21.500"
+          description: Остаток за вычетом резервов — сколько реально можно заказать
+        image_url: { type: string, nullable: true }
+        is_archived: { type: boolean }
+
+    Order:
+      type: object
+      properties:
+        id: { type: string }
+        client_id: { type: string, nullable: true }
+        client_name: { type: string }
+        client_phone: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [new, confirmed, assembling, ready, delivered, cancelled]
+        total: { type: string, example: "5270.00" }
+        note: { type: string, nullable: true }
+        source:
+          type: string
+          nullable: true
+          enum: [site, whatsapp, phone, other]
+        assigned_to: { type: string, nullable: true }
+        cancelled_reason: { type: string, nullable: true }
+        created_at: { type: string }
+        updated_at: { type: string }
+
+    OrderItem:
+      type: object
+      description: Название и цена — снимок на момент заказа, задним числом не меняются.
+      properties:
+        id: { type: string }
+        product_id: { type: string, nullable: true }
+        product_name: { type: string }
+        product_sku: { type: string, nullable: true }
+        unit: { type: string }
+        price: { type: string, example: "1880.00" }
+        quantity: { type: string, example: "2.500" }
+        subtotal: { type: string, example: "4700.00" }
+
+    OrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/Order"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/OrderItem" }
+
+    CreateOrder:
+      type: object
+      required: [client_name, items]
+      properties:
+        client_name: { type: string }
+        client_phone: { type: string }
+        source:
+          type: string
+          enum: [site, whatsapp, phone, other]
+        note: { type: string }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [product_id, quantity]
+            properties:
+              product_id: { type: string }
+              quantity:
+                type: string
+                example: "2.5"
+                description: Строкой, до трёх знаков после точки
+
+    UpdateOrderStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [new, confirmed, assembling, ready, delivered, cancelled]
+        cancelled_reason: { type: string }
+        assigned_to: { type: string }
+
+    StockLevel:
+      type: object
+      properties:
+        product_id: { type: string }
+        product_name: { type: string }
+        sku: { type: string, nullable: true }
+        unit: { type: string }
+        stock_qty: { type: string }
+        reserved_qty: { type: string }
+        available_qty: { type: string }
+        min_stock_qty: { type: string, nullable: true }
+        low_stock:
+          type: boolean
+          description: Доступно меньше минимального остатка — пора заказывать
+
+    Movement:
+      type: object
+      properties:
+        id: { type: string }
+        product_id: { type: string }
+        movement_type:
+          type: string
+          enum: [in, out, adjustment, reserve, unreserve]
+        quantity:
+          type: string
+          description: Со знаком. Минус — расход или снятие резерва
+          example: "-2.500"
+        reason: { type: string, nullable: true }
+        order_id: { type: string, nullable: true }
+        employee_id: { type: string, nullable: true }
+        created_at: { type: string }
+
+    CreateMovement:
+      type: object
+      required: [product_id, movement_type, quantity]
+      properties:
+        product_id: { type: string }
+        movement_type:
+          type: string
+          enum: [in, out, adjustment]
+          description: reserve и unreserve создаются только заказами
+        quantity:
+          type: string
+          example: "40"
+          description: Для adjustment допустим минус в начале
+        reason: { type: string, example: "накладная КО-2214" }
+        employee_id: { type: string }
