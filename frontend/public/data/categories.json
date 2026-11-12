@@ -1,0 +1,22 @@
+[
+  {
+    "id": "6279888c-3e33-433b-b13e-a648420d1fd6",
+    "name": "Ингредиенты",
+    "slug": "ingredients"
+  },
+  {
+    "id": "6160d933-237d-42ca-9b0a-e533cfa04d5a",
+    "name": "Упаковка",
+    "slug": "packaging"
+  },
+  {
+    "id": "e2ec03af-f705-4afb-abc6-23d04af85019",
+    "name": "Декор",
+    "slug": "decor"
+  },
+  {
+    "id": "23c081f6-f41e-4bc3-81e6-44aa9858fa7c",
+    "name": "Инструменты",
+    "slug": "tools"
+  }
+]

@@ -1,0 +1,182 @@
+[
+  {
+    "id": "bf373fb4-57e9-4011-a080-e4b9f7d9a304",
+    "category_id": "6279888c-3e33-433b-b13e-a648420d1fd6",
+    "name": "Шоколад тёмный 54%, 1 кг",
+    "sku": "DEMO-ING-001",
+    "price": "9900.00",
+    "unit": "шт",
+    "available_qty": "24",
+    "image_url": null
+  },
+  {
+    "id": "b679c614-01a7-42a2-9874-fa04de06aef9",
+    "category_id": "6279888c-3e33-433b-b13e-a648420d1fd6",
+    "name": "Шоколад белый 28%, 1 кг",
+    "sku": "DEMO-ING-002",
+    "price": "10400.00",
+    "unit": "шт",
+    "available_qty": "12",
+    "image_url": null
+  },
+  {
+    "id": "448c8bb1-2982-4786-a742-026357ec1af4",
+    "category_id": "6279888c-3e33-433b-b13e-a648420d1fd6",
+    "name": "Какао-порошок алкализованный, 500 г",
+    "sku": "DEMO-ING-003",
+    "price": "4200.00",
+    "unit": "шт",
+    "available_qty": "30",
+    "image_url": null
+  },
+  {
+    "id": "561f26ec-eea6-4ab1-b79e-0cc8aff616e0",
+    "category_id": "6279888c-3e33-433b-b13e-a648420d1fd6",
+    "name": "Миндальная мука, 1 кг",
+    "sku": "DEMO-ING-004",
+    "price": "7800.00",
+    "unit": "шт",
+    "available_qty": "0",
+    "image_url": null
+  },
+  {
+    "id": "3be9e649-75f1-4e84-923d-3522e21aa489",
+    "category_id": "6279888c-3e33-433b-b13e-a648420d1fd6",
+    "name": "Краситель гелевый «Розовый», 20 мл",
+    "sku": "DEMO-ING-005",
+    "price": "1250.00",
+    "unit": "шт",
+    "available_qty": "48",
+    "image_url": null
+  },
+  {
+    "id": "da555db8-c32f-497b-9ea3-894c1f7d8c1a",
+    "category_id": "6160d933-237d-42ca-9b0a-e533cfa04d5a",
+    "name": "Коробка для капкейков на 6 шт",
+    "sku": "DEMO-PCK-001",
+    "price": "650.00",
+    "unit": "шт",
+    "available_qty": "120",
+    "image_url": null
+  },
+  {
+    "id": "e7dd24f2-795f-4ce6-8238-499875fd50de",
+    "category_id": "6160d933-237d-42ca-9b0a-e533cfa04d5a",
+    "name": "Коробка для торта 30×30 см с окном",
+    "sku": "DEMO-PCK-002",
+    "price": "980.00",
+    "unit": "шт",
+    "available_qty": "35",
+    "image_url": null
+  },
+  {
+    "id": "fb331194-97d8-448a-bd8b-263c66fc915d",
+    "category_id": "6160d933-237d-42ca-9b0a-e533cfa04d5a",
+    "name": "Лента атласная золото, 25 м",
+    "sku": "DEMO-PCK-003",
+    "price": "1100.00",
+    "unit": "шт",
+    "available_qty": "3",
+    "image_url": null
+  },
+  {
+    "id": "80754d4d-db16-44d4-ae36-4e7ed83efeed",
+    "category_id": "6160d933-237d-42ca-9b0a-e533cfa04d5a",
+    "name": "Пакет крафт с окном, 50 шт",
+    "sku": "DEMO-PCK-004",
+    "price": "2300.00",
+    "unit": "шт",
+    "available_qty": "18",
+    "image_url": null
+  },
+  {
+    "id": "d653fc64-cbb7-4859-b402-4238558a202b",
+    "category_id": "e2ec03af-f705-4afb-abc6-23d04af85019",
+    "name": "Свечи «Пастель», 12 шт",
+    "sku": "DEMO-DEC-001",
+    "price": "1800.00",
+    "unit": "шт",
+    "available_qty": "40",
+    "image_url": null
+  },
+  {
+    "id": "cbe5201d-5640-4604-bc6f-1c4d8f70b13a",
+    "category_id": "e2ec03af-f705-4afb-abc6-23d04af85019",
+    "name": "Посыпка «Жемчуг» золотая, 100 г",
+    "sku": "DEMO-DEC-002",
+    "price": "1450.00",
+    "unit": "шт",
+    "available_qty": "26",
+    "image_url": null
+  },
+  {
+    "id": "d8a856e8-4477-4d36-95a1-f347502b1be9",
+    "category_id": "e2ec03af-f705-4afb-abc6-23d04af85019",
+    "name": "Топпер «С днём рождения», золото",
+    "sku": "DEMO-DEC-003",
+    "price": "900.00",
+    "unit": "шт",
+    "available_qty": "0",
+    "image_url": null
+  },
+  {
+    "id": "7f8e3b4f-96b9-4b54-a79b-86a85f60a0fc",
+    "category_id": "e2ec03af-f705-4afb-abc6-23d04af85019",
+    "name": "Сахарные цветы «Розы», 8 шт",
+    "sku": "DEMO-DEC-004",
+    "price": "2600.00",
+    "unit": "шт",
+    "available_qty": "9",
+    "image_url": null
+  },
+  {
+    "id": "539e5cda-35fe-4c45-aeec-cfe31d945322",
+    "category_id": "23c081f6-f41e-4bc3-81e6-44aa9858fa7c",
+    "name": "Подложка золото Ø 30 см",
+    "sku": "DEMO-TLS-001",
+    "price": "600.00",
+    "unit": "шт",
+    "available_qty": "75",
+    "image_url": null
+  },
+  {
+    "id": "8f333317-066b-4217-8304-50b84cf728cf",
+    "category_id": "23c081f6-f41e-4bc3-81e6-44aa9858fa7c",
+    "name": "Кондитерский мешок, 100 шт",
+    "sku": "DEMO-TLS-002",
+    "price": "3900.00",
+    "unit": "шт",
+    "available_qty": "22",
+    "image_url": null
+  },
+  {
+    "id": "38f64e49-2b9c-4752-81ec-35286b528a6f",
+    "category_id": "23c081f6-f41e-4bc3-81e6-44aa9858fa7c",
+    "name": "Насадка «Открытая звезда» 1M",
+    "sku": "DEMO-TLS-003",
+    "price": "1200.00",
+    "unit": "шт",
+    "available_qty": "15",
+    "image_url": null
+  },
+  {
+    "id": "64c294a2-51b3-4f0d-aa8a-3c5f474e559f",
+    "category_id": "23c081f6-f41e-4bc3-81e6-44aa9858fa7c",
+    "name": "Форма для выпечки разъёмная Ø 20 см",
+    "sku": "DEMO-TLS-004",
+    "price": "5600.00",
+    "unit": "шт",
+    "available_qty": "6",
+    "image_url": null
+  },
+  {
+    "id": "b17dad1d-1e3c-4204-b59f-d15ce77dfe3d",
+    "category_id": "23c081f6-f41e-4bc3-81e6-44aa9858fa7c",
+    "name": "Шпатель угловой, 25 см",
+    "sku": "DEMO-TLS-005",
+    "price": "2100.00",
+    "unit": "шт",
+    "available_qty": "11",
+    "image_url": null
+  }
+]
