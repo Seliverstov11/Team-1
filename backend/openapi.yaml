@@ -148,7 +148,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/OrderDetail" }
         "400":
-          description: Пустой заказ, нет товара или не хватает остатка
+          description: >
+            Пустой заказ, нет товара, не хватает остатка, количество меньше
+            минимального или не кратно шагу
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
@@ -287,8 +289,29 @@ components:
           type: string
           example: "21.500"
           description: Остаток за вычетом резервов — сколько реально можно заказать
+        min_order:
+          type: string
+          example: "0.500"
+          description: Минимальное количество в заказе
+        order_step:
+          type: string
+          example: "0.100"
+          description: Шаг изменения количества, отсчитывается от min_order
+        attributes:
+          type: array
+          description: >
+            Характеристики произвольные, набор свой у каждого товара —
+            заказчик заводит новые при добавлении товара. Фиксированного
+            списка полей нет.
+          items: { $ref: "#/components/schemas/Attribute" }
         image_url: { type: string, nullable: true }
         is_archived: { type: boolean }
+
+    Attribute:
+      type: object
+      properties:
+        name: { type: string, example: "Какао" }
+        value: { type: string, example: "54,5 %" }
 
     Order:
       type: object
@@ -380,6 +403,11 @@ components:
         low_stock:
           type: boolean
           description: Доступно меньше минимального остатка — пора заказывать
+        storage_location:
+          type: string
+          nullable: true
+          example: "A-03"
+          description: Полка на складе. Сканера нет, кладовщик ищет по ней
 
     Movement:
       type: object
@@ -396,6 +424,7 @@ components:
         reason: { type: string, nullable: true }
         order_id: { type: string, nullable: true }
         employee_id: { type: string, nullable: true }
+        storage_location: { type: string, nullable: true }
         created_at: { type: string }
 
     CreateMovement:
@@ -413,3 +442,7 @@ components:
           description: Для adjustment допустим минус в начале
         reason: { type: string, example: "накладная КО-2214" }
         employee_id: { type: string }
+        storage_location:
+          type: string
+          example: "D-02"
+          description: Куда положили. Не передали — остаётся прежняя полка
