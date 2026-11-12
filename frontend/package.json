@@ -18,6 +18,7 @@
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/montserrat": "^5.3.0",
-    "alpinejs": "^3.17.5"
+    "alpinejs": "^3.17.5",
+    "smol-toml": "^1.9.1"
   }
 }

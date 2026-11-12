@@ -1,14 +1,24 @@
 /**
- * Дизайн-токены Bakeloom — единственное место, где задаются цвета, шрифты, размеры текста,
- * радиусы и тени. В разметке пишем классы по смыслу (bg-brand-dark, text-error, rounded-card),
- * а не цвета (bg-[#4A5236]). Поменять оттенок = поправить одну строку здесь.
+ * Дизайн-токены Bakeloom: цвета, шрифты, размеры текста, радиусы и тени.
+ * Цвета задаются в palette.toml, здесь — всё остальное. В разметке пишем классы по смыслу
+ * (bg-brand-dark, text-error, rounded-card), а не цвета (bg-[#4A5236]).
  *
  * Источник: Figma «Сладкий мастер — макет сайта» → страница «🌿 UI-кит · Минималистичный & Премиум»,
- * локальные стили «Премиум/…» (в комментариях — имя стиля в Figma).
+ * локальные стили «Премиум/…». Палитра с именами стилей Figma — в palette.toml.
  * Наглядно все токены — на странице /tokens.html.
  *
  * Tailwind 4 читает этот файл через `@config` в src/input.css.
  */
+
+import { readFileSync } from 'node:fs'
+import { parse } from 'smol-toml'
+
+// palette.toml: [группа.оттенок] hex = "…"  →  { группа: { оттенок: '#…' } }
+const palette = Object.fromEntries(
+  Object.entries(parse(readFileSync(new URL('./palette.toml', import.meta.url), 'utf8'))).map(
+    ([group, shades]) => [group, Object.fromEntries(Object.entries(shades).map(([shade, c]) => [shade, c.hex]))],
+  ),
+)
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -16,67 +26,8 @@ export default {
 
   theme: {
     extend: {
-      colors: {
-        // Фирменные цвета
-        brand: {
-          dark: '#4A5236',          // Премиум/Primary/Olive — основной: кнопки, меню, баннер
-          'dark-hover': '#3A4129',  // Премиум/Primary/Olive Dark — hover основной кнопки, низ градиентов
-          'dark-raised': '#56603F', // верх градиента баннера (пример главной в Figma)
-          'dark-inset': '#555E40',  // плашка-иллюстрация на баннере (пример главной в Figma)
-          'dark-soft': '#E6E8DC',   // Премиум/Primary/Olive Soft — светлая подложка в тон основному
-          light: '#F7F4EC',         // Премиум/Surface/Ivory — фон страницы
-          gold: '#B8975A',          // Премиум/Accent/Gold — акцент, рамки, подписи-«капс»
-          'gold-hover': '#9A7B43',  // Премиум/Accent/Gold Dark — hover золотой кнопки
-          'gold-light': '#D9C499',  // Премиум/Accent/Gold Light — золото на тёмном фоне, рамки при hover
-          'gold-soft': '#F2EBDA',   // Премиум/Accent/Gold Soft — подложка иконок, выделение
-        },
-
-        // Поверхности
-        surface: {
-          DEFAULT: '#FFFFFF',       // Премиум/Surface/White — карточки, шапка, панели
-          sand: '#EDE6D6',          // Премиум/Surface/Sand — вторичная подложка
-        },
-
-        // Текст
-        ink: {
-          DEFAULT: '#2B2620',       // Премиум/Text/Espresso — основной текст
-          muted: '#8C8172',         // Премиум/Text/Muted — второстепенный текст, подписи
-          placeholder: '#B5AD9E',   // плейсхолдеры полей (компонент Input в UI-ките)
-        },
-
-        // Контент на тёмном (оливковом) фоне: меню, баннер
-        'on-dark': {
-          DEFAULT: '#E9E4D4',       // основной текст на тёмном
-          muted: '#A9AE92',         // подписи на тёмном
-          subtle: '#C9C9B4',        // подзаголовок баннера
-          line: '#5E6748',          // разделители на тёмном
-        },
-
-        // Линии и рамки
-        line: {
-          DEFAULT: '#E3DCCB',       // Премиум/Border/Hairline — рамки полей, разделители
-          strong: '#C9C0AE',        // рамка чекбокса (компонент Checkbox)
-        },
-
-        // Состояния
-        success: {
-          DEFAULT: '#7C8B5E',       // Премиум/Status/Sage — «в наличии», успех
-          soft: '#E9EDE0',          // Премиум/Status/Sage Soft — фон уведомления об успехе
-        },
-        error: {
-          DEFAULT: '#B4664A',       // Премиум/Status/Terracotta — ошибки, «нет в наличии»
-          soft: '#F5E6DF',          // Премиум/Status/Terracotta Soft — фон ошибки
-        },
-        disabled: '#D9D3C6',        // Премиум/State/Disabled — неактивные кнопки и поля
-
-        // Подложки фото товара по категориям (пока image_url пустой)
-        media: {
-          ingredients: '#EFE9DC',
-          packaging: '#E8E2D0',
-          decor: '#E6E9DC',
-          tools: '#F2EBDA',
-        },
-      },
+      // Цвета — из palette.toml (единственный источник палитры)
+      colors: palette,
 
       fontFamily: {
         // Заголовки, цены, логотип

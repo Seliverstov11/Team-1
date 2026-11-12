@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import { readFileSync } from 'node:fs'
+import { readFileSync, utimesSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,8 +30,28 @@ function htmlIncludes() {
   }
 }
 
+// Палитра читается из palette.toml в tailwind.config.js. Tailwind пересобирает стили, только когда
+// меняется сам конфиг, поэтому при правке палитры обновляем дату изменения конфига
+// и перезагружаем страницу — новые цвета применяются сразу.
+function watchPalette() {
+  return {
+    name: 'watch-palette',
+    configureServer(server) {
+      const palette = resolve(root, 'palette.toml')
+      const config = resolve(root, 'tailwind.config.js')
+      server.watcher.add(palette)
+      server.watcher.on('change', file => {
+        if (file !== palette) return
+        const now = new Date()
+        utimesSync(config, now, now)
+        server.ws.send({ type: 'full-reload' })
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [htmlIncludes()], // Tailwind — через postcss.config.js
+  plugins: [htmlIncludes(), watchPalette()], // Tailwind — через postcss.config.js
   // host: true — сайт доступен с других компьютеров в локальной сети (http://<IP>:5173).
   // strictPort — порт всегда 5173, чтобы адрес для коллег не «уезжал».
   server: { host: true, port: 5173, strictPort: true, open: true },

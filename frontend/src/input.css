@@ -4,6 +4,10 @@
 /* Все токены (цвета, шрифты, размеры, радиусы, тени) — в tailwind.config.js */
 @config "../tailwind.config.js";
 
+/* Документацию не сканируем: в ней примеры «как нельзя» (bg-[#…]) — иначе Tailwind сгенерирует эти классы */
+@source not "../README.md";
+@source not "../tailwind.config.js";
+
 @layer base {
   html { scroll-behavior: smooth; }
   body { @apply bg-brand-light font-body text-ink antialiased; }
