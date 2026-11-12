@@ -17,9 +17,9 @@
       <p class="eyebrow">Для разработчиков</p>
       <h1 class="mt-3 font-heading text-h1 font-medium">Дизайн-токены Bakeloom</h1>
       <p class="mt-3 max-w-[48rem] text-body text-ink-muted">
-        Всё, что можно использовать в вёрстке. Источник — <code>frontend/tailwind.config.js</code>,
+        Всё, что можно использовать в вёрстке. Цвета — <code>frontend/palette.toml</code>, остальное — <code>frontend/tailwind.config.js</code>;
         значения перенесены из Figma «🌿 UI-кит · Минималистичный &amp; Премиум» (стили «Премиум/…»).
-        Цвет в разметке не пишем: <code class="text-error">bg-[#4A5236]</code> → <code class="text-success">bg-brand-dark</code>.
+        Цвет в разметке не пишем: <code class="text-error">bg-&#91;#4A5236&#93;</code> → <code class="text-success">bg-brand-dark</code>.
       </p>
     </div>
     <div class="rounded-card border px-5 py-4 text-small" :class="check.ok ? 'border-success bg-success-soft' : 'border-error bg-error-soft'">
@@ -38,7 +38,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-dark</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Primary/Olive — основной: кнопки, меню, баннер</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-hover">
@@ -46,7 +46,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-dark-hover</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Primary/Olive Dark — hover основной кнопки, низ градиентов</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-raised">
@@ -54,7 +54,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-dark-raised</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">верх градиента баннера (пример главной в Figma)</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-inset">
@@ -62,7 +62,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-dark-inset</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">плашка-иллюстрация на баннере (пример главной в Figma)</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-dark-soft">
@@ -70,7 +70,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-dark-soft</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Primary/Olive Soft — светлая подложка в тон основному</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-light">
@@ -78,7 +78,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-light</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Surface/Ivory — фон страницы</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold">
@@ -86,7 +86,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-gold</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold — акцент, рамки, подписи-«капс»</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold-hover">
@@ -94,7 +94,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-gold-hover</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold Dark — hover золотой кнопки</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold-light">
@@ -102,7 +102,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-gold-light</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold Light — золото на тёмном фоне, рамки при hover</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="brand-gold-soft">
@@ -110,7 +110,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-brand-gold-soft</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Accent/Gold Soft — подложка иконок, выделение</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -121,7 +121,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-surface</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Surface/White — карточки, шапка, панели</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="surface-sand">
@@ -129,7 +129,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-surface-sand</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Surface/Sand — вторичная подложка</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -140,7 +140,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-ink</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Text/Espresso — основной текст</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="ink-muted">
@@ -148,7 +148,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-ink-muted</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Text/Muted — второстепенный текст, подписи</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="ink-placeholder">
@@ -156,7 +156,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-ink-placeholder</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">плейсхолдеры полей (компонент Input в UI-ките)</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -167,7 +167,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-on-dark</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">основной текст на тёмном</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="on-dark-muted">
@@ -175,7 +175,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-on-dark-muted</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">подписи на тёмном</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="on-dark-subtle">
@@ -183,7 +183,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-on-dark-subtle</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">подзаголовок баннера</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="on-dark-line">
@@ -191,7 +191,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-on-dark-line</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">разделители на тёмном</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -202,7 +202,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-line</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Border/Hairline — рамки полей, разделители</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="line-strong">
@@ -210,7 +210,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-line-strong</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">рамка чекбокса (компонент Checkbox)</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -221,7 +221,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-success</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Sage — «в наличии», успех</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="success-soft">
@@ -229,7 +229,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-success-soft</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Sage Soft — фон уведомления об успехе</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -240,7 +240,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-error</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Terracotta — ошибки, «нет в наличии»</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="error-soft">
@@ -248,7 +248,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-error-soft</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/Status/Terracotta Soft — фон ошибки</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -259,7 +259,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-disabled</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted">Премиум/State/Disabled — неактивные кнопки и поля</span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -270,7 +270,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-media-ingredients</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted"></span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="media-packaging">
@@ -278,7 +278,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-media-packaging</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted"></span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="media-decor">
@@ -286,7 +286,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-media-decor</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted"></span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
         <figure class="overflow-hidden rounded-card border border-line bg-surface" data-token="media-tools">
@@ -294,7 +294,7 @@
           <figcaption class="space-y-1 p-3">
             <code class="block text-small font-medium">bg-media-tools</code>
             <span class="block font-mono text-xs text-ink-muted" data-hex></span>
-            <span class="block text-xs leading-snug text-ink-muted"></span>
+            <span class="block text-xs leading-snug text-ink-muted" data-note></span>
           </figcaption>
         </figure>
       </div>
@@ -459,7 +459,8 @@
 </main>
 
 <script type="module">
-  import config from '/tailwind.config.js'
+  import paletteToml from '/palette.toml?raw'
+  import { parse } from 'smol-toml'
   import Alpine from 'alpinejs'
 
   const toHex = rgb => {
@@ -473,18 +474,23 @@
   Alpine.data('tokensPage', () => ({
     check: { ok: true, text: '' },
     init() {
-      const ext = config.theme.extend
-      // Цвет каждой плашки — из собранного CSS, а не из конфига: так видно, что класс реально сгенерирован
-      const expected = Object.entries(ext.colors).flatMap(([g, v]) =>
-        typeof v === 'string' ? [[g, v]] : Object.entries(v).map(([k, x]) => [k === 'DEFAULT' ? g : `${g}-${k}`, x]))
+      // Палитра — из palette.toml; цвет плашки — из собранного CSS: так видно, что класс реально сгенерирован
+      const palette = parse(paletteToml)
+      const expected = Object.entries(palette).flatMap(([group, shades]) =>
+        Object.entries(shades).map(([shade, c]) => [shade === 'DEFAULT' ? group : `${group}-${shade}`, c]))
       const problems = []
-      for (const [name, value] of expected) {
+      for (const [name, c] of expected) {
         const card = document.querySelector(`[data-token="${name}"]`)
         if (!card) { problems.push(`нет плашки ${name}`); continue }
         const built = toHex(getComputedStyle(card.firstElementChild).backgroundColor)
         card.querySelector('[data-hex]').textContent = built
-        if (built !== value.toUpperCase()) problems.push(`${name}: в CSS ${built}, в конфиге ${value}`)
+        card.querySelector('[data-note]').textContent = `${c.figma} — ${c.usage}`
+        if (built !== c.hex.toUpperCase()) problems.push(`${name}: в CSS ${built}, в palette.toml ${c.hex}`)
       }
+      const extra = [...document.querySelectorAll('[data-token]')].map(e => e.dataset.token)
+        .filter(n => !expected.some(([name]) => name === n))
+      if (extra.length) problems.push(`нет в palette.toml: ${extra.join(', ')}`)
+
       document.querySelectorAll('[data-size]').forEach(el => {
         const p = getComputedStyle(el.querySelector('p'))
         el.querySelector('[data-px]').textContent = `${parseFloat(p.fontSize)} / ${Math.round(parseFloat(p.lineHeight))} px`
@@ -493,11 +499,12 @@
         el.textContent = getComputedStyle(el.parentElement.firstElementChild).borderTopLeftRadius
       })
       document.querySelectorAll('[data-stack]').forEach(el => {
-        el.textContent = 'Fallback: ' + ext.fontFamily[el.dataset.stack].join(', ')
+        const probe = el.closest('div').querySelector(`.font-${el.dataset.stack}`)
+        el.textContent = 'Fallback: ' + getComputedStyle(probe).fontFamily
       })
       this.check = problems.length
         ? { ok: false, text: problems.join('; ') }
-        : { ok: true, text: `${expected.length} цветов из tailwind.config.js совпадают с собранным CSS` }
+        : { ok: true, text: `${expected.length} цветов из palette.toml совпадают с собранным CSS` }
     },
   }))
   Alpine.start()
