@@ -34,8 +34,25 @@ pub struct ProductRow {
     pub is_weight: i64,
     pub stock_milli: i64,
     pub reserved_milli: i64,
+    pub min_order_milli: i64,
+    pub order_step_milli: i64,
     pub image_url: Option<String>,
     pub is_archived: i64,
+}
+
+/// Характеристики — произвольные пары, не фиксированные колонки:
+/// заказчик будет заводить новые сам при добавлении товара.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Attribute {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AttributeRow {
+    pub product_id: String,
+    pub name: String,
+    pub value: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -50,12 +67,16 @@ pub struct ProductView {
     pub is_weight: bool,
     pub stock_qty: String,
     pub available_qty: String,
+    /// Минимальное количество в заказе и шаг изменения
+    pub min_order: String,
+    pub order_step: String,
     pub image_url: Option<String>,
     pub is_archived: bool,
+    pub attributes: Vec<Attribute>,
 }
 
-impl From<ProductRow> for ProductView {
-    fn from(r: ProductRow) -> Self {
+impl ProductView {
+    pub fn from_row(r: ProductRow, attributes: Vec<Attribute>) -> Self {
         let available = (r.stock_milli - r.reserved_milli).max(0);
         Self {
             id: r.id,
@@ -68,8 +89,11 @@ impl From<ProductRow> for ProductView {
             is_weight: r.is_weight != 0,
             stock_qty: milli_to_string(r.stock_milli),
             available_qty: milli_to_string(available),
+            min_order: milli_to_string(r.min_order_milli),
+            order_step: milli_to_string(r.order_step_milli),
             image_url: r.image_url,
             is_archived: r.is_archived != 0,
+            attributes,
         }
     }
 }
@@ -223,6 +247,7 @@ pub struct StockRow {
     pub stock_milli: i64,
     pub reserved_milli: i64,
     pub min_stock_milli: Option<i64>,
+    pub storage_location: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -236,6 +261,8 @@ pub struct StockView {
     pub available_qty: String,
     pub min_stock_qty: Option<String>,
     pub low_stock: bool,
+    /// Где лежит на складе. Сканера у заказчика нет, ищут по полке.
+    pub storage_location: Option<String>,
 }
 
 impl From<StockRow> for StockView {
@@ -251,6 +278,7 @@ impl From<StockRow> for StockView {
             available_qty: milli_to_string(available),
             min_stock_qty: r.min_stock_milli.map(milli_to_string),
             low_stock: r.min_stock_milli.is_some_and(|m| available < m),
+            storage_location: r.storage_location,
         }
     }
 }
@@ -264,6 +292,7 @@ pub struct MovementRow {
     pub reason: Option<String>,
     pub order_id: Option<String>,
     pub employee_id: Option<String>,
+    pub storage_location: Option<String>,
     pub created_at: String,
 }
 
@@ -276,6 +305,7 @@ pub struct MovementView {
     pub reason: Option<String>,
     pub order_id: Option<String>,
     pub employee_id: Option<String>,
+    pub storage_location: Option<String>,
     pub created_at: String,
 }
 
@@ -289,6 +319,7 @@ impl From<MovementRow> for MovementView {
             reason: r.reason,
             order_id: r.order_id,
             employee_id: r.employee_id,
+            storage_location: r.storage_location,
             created_at: r.created_at,
         }
     }
@@ -303,4 +334,6 @@ pub struct CreateMovement {
     pub quantity: String,
     pub reason: Option<String>,
     pub employee_id: Option<String>,
+    /// Куда положили при приёмке
+    pub storage_location: Option<String>,
 }

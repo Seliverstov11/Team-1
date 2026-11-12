@@ -28,6 +28,10 @@ pub async fn connect() -> anyhow::Result<Db> {
 const MIGRATIONS: &[(&str, &str)] = &[
     ("001_initial", include_str!("../migrations/001_initial.sql")),
     ("002_seed_demo", include_str!("../migrations/002_seed_demo.sql")),
+    (
+        "003_attributes_and_limits",
+        include_str!("../migrations/003_attributes_and_limits.sql"),
+    ),
 ];
 
 async fn migrate(db: &libsql::Database) -> anyhow::Result<()> {

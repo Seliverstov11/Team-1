@@ -15,13 +15,15 @@ pub fn router() -> Router<Db> {
 }
 
 const MOVEMENT_COLS: &str =
-    "id, product_id, movement_type, quantity_milli, reason, order_id, employee_id, created_at";
+    "id, product_id, movement_type, quantity_milli, reason, order_id, employee_id,
+     storage_location, created_at";
 
 async fn list_stock(State(db): State<Db>) -> ApiResult<Json<Vec<StockView>>> {
     let conn = db.connect()?;
     let rows = conn
         .query(
-            "SELECT id, name, sku, unit, stock_milli, reserved_milli, min_stock_milli
+            "SELECT id, name, sku, unit, stock_milli, reserved_milli, min_stock_milli,
+                    storage_location
              FROM products WHERE is_archived = 0 ORDER BY name",
             (),
         )
@@ -92,7 +94,8 @@ async fn add_movement(
 
     let rows = tx
         .query(
-            "SELECT stock_milli, reserved_milli, name FROM products WHERE id = ?1",
+            "SELECT stock_milli, reserved_milli, name, storage_location
+             FROM products WHERE id = ?1",
             libsql::params![body.product_id.clone()],
         )
         .await?;
@@ -105,6 +108,15 @@ async fn add_movement(
     let stock: i64 = row.get(0)?;
     let reserved: i64 = row.get(1)?;
     let name: String = row.get(2)?;
+    let current_location: Option<String> = row.get(3)?;
+
+    // Полка указывается при приёмке: «когда принимаем, мы сразу указываем,
+    // куда мы его принимаем». Если не передали — оставляем прежнюю.
+    let location = body
+        .storage_location
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .or(current_location);
 
     let new_stock = stock + delta;
     if new_stock < 0 {
@@ -122,16 +134,23 @@ async fn add_movement(
 
     let ts = now();
     tx.execute(
-        "UPDATE products SET stock_milli = ?1, updated_at = ?2 WHERE id = ?3",
-        libsql::params![new_stock, ts.clone(), body.product_id.clone()],
+        "UPDATE products SET stock_milli = ?1, storage_location = ?2, updated_at = ?3
+         WHERE id = ?4",
+        libsql::params![
+            new_stock,
+            location.clone(),
+            ts.clone(),
+            body.product_id.clone()
+        ],
     )
     .await?;
 
     let mov_id = new_id();
     tx.execute(
         "INSERT INTO stock_movements
-         (id, product_id, movement_type, quantity_milli, reason, employee_id, created_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7)",
+         (id, product_id, movement_type, quantity_milli, reason, employee_id,
+          storage_location, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
         libsql::params![
             mov_id.clone(),
             body.product_id.clone(),
@@ -139,6 +158,7 @@ async fn add_movement(
             delta,
             body.reason.clone(),
             body.employee_id.clone(),
+            location,
             ts
         ],
     )

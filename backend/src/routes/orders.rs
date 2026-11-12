@@ -138,7 +138,8 @@ async fn create_order(
 
         let rows = tx
             .query(
-                "SELECT name, sku, unit, price_tiyn, stock_milli, reserved_milli, is_archived
+                "SELECT name, sku, unit, price_tiyn, stock_milli, reserved_milli, is_archived,
+                        min_order_milli, order_step_milli
                  FROM products WHERE id = ?1",
                 libsql::params![item.product_id.clone()],
             )
@@ -160,9 +161,25 @@ async fn create_order(
         let stock: i64 = row.get(4)?;
         let reserved: i64 = row.get(5)?;
         let archived: i64 = row.get(6)?;
+        let min_order: i64 = row.get(7)?;
+        let step: i64 = row.get(8)?;
 
         if archived != 0 {
             return Err(ApiError::BadRequest(format!("товар «{name}» снят с продажи")));
+        }
+
+        if qty < min_order {
+            return Err(ApiError::BadRequest(format!(
+                "«{name}»: минимальный заказ {} {unit}",
+                crate::num::milli_to_string(min_order)
+            )));
+        }
+        if step > 0 && (qty - min_order) % step != 0 {
+            return Err(ApiError::BadRequest(format!(
+                "«{name}»: количество задаётся шагом {} {unit}, начиная с {}",
+                crate::num::milli_to_string(step),
+                crate::num::milli_to_string(min_order)
+            )));
         }
 
         let available = stock - reserved;
