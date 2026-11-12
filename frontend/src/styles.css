@@ -1,0 +1,147 @@
+@import "./fonts.css";
+@import "tailwindcss";
+
+/* Токены премиального макета (Figma: «🌿 UI-кит · Минималистичный & Премиум») */
+@theme {
+  --color-ivory: #f7f4ec;
+  --color-olive: #4a5236;
+  --color-olive-2: #56603f;
+  --color-olive-deep: #3a4129;
+  --color-olive-line: #5e6748;
+  --color-gold: #b8975a;
+  --color-gold-soft: #d9c499;
+  --color-cream: #e9e4d4;
+  --color-sage: #a9ae92;
+  --color-ink: #2b2620;
+  --color-muted: #8c8172;
+  --color-hint: #b5ad9e;
+  --color-line: #e4ddcc;
+  --color-chip: #f2ebda;
+
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Montserrat", system-ui, sans-serif;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply bg-ivory font-sans text-ink antialiased; }
+  [x-cloak] { display: none !important; }
+}
+
+/* Надпись-«капс» из макета: Montserrat Medium, верхний регистр, разрядка */
+@utility caps {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+@utility eyebrow {
+  @apply caps text-[11px] text-gold;
+  &::before {
+    content: "";
+    @apply mr-3 inline-block h-px w-6 bg-gold align-middle;
+  }
+}
+
+@utility demo-tag {
+  @apply caps inline-flex items-center rounded-full border border-gold/50 px-2 py-0.5 text-[9px] text-gold;
+}
+
+@utility btn-outline {
+  @apply caps inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-gold px-5 text-[12px] text-ink transition hover:bg-gold/10;
+  &:disabled { @apply cursor-not-allowed border-line bg-transparent text-hint; }
+}
+
+@utility btn-solid {
+  @apply caps inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-olive bg-olive px-5 text-[12px] text-ivory transition hover:bg-olive-deep;
+  &:disabled { @apply cursor-not-allowed border-line bg-transparent text-hint; }
+}
+
+/* Боковое меню */
+@utility nav-link {
+  @apply caps relative block rounded-[0.625rem] px-4 py-3 text-xs text-cream/85 transition-colors hover:bg-white/6 hover:text-gold-soft;
+}
+@utility sub-link {
+  @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-light text-cream/80 transition-colors hover:text-gold-soft;
+  &.is-active { @apply font-normal text-gold-soft; }
+  &.is-active .sub-mark { @apply w-5 bg-gold opacity-100; }
+}
+@utility sub-mark {
+  @apply h-px w-3 bg-current opacity-50 transition-all;
+}
+
+/* Счётчик в шапке */
+@utility counter {
+  @apply grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1.5 text-[0.625rem] font-semibold tracking-normal text-white;
+}
+
+/* Поля формы */
+@utility field {
+  @apply h-12 w-full rounded-xl border border-line bg-white px-4 text-sm outline-none transition placeholder:text-hint focus:border-gold;
+  &.is-invalid { @apply border-[#b4664a]; }
+}
+@utility card {
+  @apply rounded-[1.125rem] bg-white;
+}
+
+/* Фильтр-чипы в каталоге */
+@utility chip {
+  @apply caps h-9 rounded-full border border-line px-4 text-[0.625rem] tracking-[0.16em] text-ink transition hover:border-gold;
+  &.is-active { @apply border-olive bg-olive text-ivory; }
+}
+
+/* ---------- Активный раздел ----------
+   Определяется по <body data-page="…"> чистым CSS: подсветка видна с первого кадра. */
+/* Вне @layer — чтобы перекрывать утилиты базового состояния */
+:is(
+  [data-page="home"] [data-nav="home"],
+  [data-page="catalog"] [data-nav="catalog"],
+  [data-page="product"] [data-nav="catalog"],
+  [data-page="favorites"] [data-nav="favorites"],
+  [data-page="cart"] [data-nav="cart"],
+  [data-page="checkout"] [data-nav="cart"],
+  [data-page="contacts"] [data-nav="contacts"]
+) {
+  background: linear-gradient(90deg, rgb(184 151 90 / 0.22), rgb(184 151 90 / 0.06));
+  color: var(--color-gold-soft);
+  box-shadow: inset 0 0 0 1px rgb(184 151 90 / 0.35);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0.6rem auto 0.6rem 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-gold);
+  }
+}
+
+/* Шапка: «Избранное» и «Корзина» на своих страницах */
+[data-page="favorites"] [data-hnav="favorites"] { @apply bg-chip ring-1 ring-gold-soft; }
+:is([data-page="cart"], [data-page="checkout"]) [data-hnav="cart"] { @apply ring-2 ring-gold ring-offset-2 ring-offset-white; }
+
+/* ---------- Переходы между страницами ----------
+   Браузер (Chrome/Edge/Safari 18) плавно сменяет страницы вместо белой вспышки.
+   Меню и шапка одинаковы на всех страницах — они остаются на месте, меняется только контент. */
+@view-transition { navigation: auto; }
+::view-transition-group(root) { animation-duration: 180ms; }
+.vt-sidebar { view-transition-name: sidebar; }
+.vt-topbar  { view-transition-name: topbar; }
+.vt-content { view-transition-name: content; }
+::view-transition-old(content) { animation: 120ms ease-out both vt-fade-out; }
+::view-transition-new(content) { animation: 220ms ease-out both vt-fade-in; }
+::view-transition-group(sidebar),
+::view-transition-group(topbar) { animation: none; }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-fade-in  { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(content), ::view-transition-new(content) { animation: none; }
+}
+
+/* ---------- Скелетон загрузки (только при самом первом заходе) ---------- */
+@utility skeleton {
+  background: linear-gradient(90deg, #efe9dc 25%, #f7f2e6 50%, #efe9dc 75%);
+  background-size: 200% 100%;
+  animation: skeleton 1.4s ease-in-out infinite;
+}
+@keyframes skeleton { to { background-position: -200% 0; } }

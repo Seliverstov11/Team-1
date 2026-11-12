@@ -1,0 +1,84 @@
+<!-- Полоса-предупреждение: заказчик не должен принять заглушки за свой ассортимент -->
+<div class="bg-olive-deep px-5 py-2 text-center text-[0.6875rem] tracking-[0.08em] text-gold-soft">
+  <span class="caps mr-2 rounded-full bg-gold px-2 py-0.5 text-[0.5625rem] text-olive-deep">Демо</span>
+  Товары, цены, остатки и контакты — тестовые заглушки, а не ассортимент магазина. Заказы никуда не отправляются
+</div>
+
+<div x-data class="mx-auto flex min-h-[calc(100vh-2.25rem)] w-full max-w-[100rem] gap-5 p-5">
+
+  <!-- ===================== Боковое меню ===================== -->
+  <aside class="vt-sidebar sticky top-5 flex max-h-[calc(100vh-2.5rem)] min-h-[38rem] w-72 shrink-0 flex-col self-start overflow-y-auto rounded-3xl bg-linear-to-b from-olive to-olive-deep px-6 py-8 text-cream">
+    <a href="/" class="mx-auto block w-[55%]" aria-label="Bakeloom — на главную">
+      <img src="/img/logo.svg" alt="Bakeloom — Premium bakery &amp; craft" class="h-auto w-full" />
+    </a>
+
+    <!-- Активный пункт подсвечивается CSS по <body data-page> — сразу, без ожидания скриптов -->
+    <nav class="mt-9 flex flex-col gap-1" aria-label="Основное меню">
+      <a href="/" class="nav-link" data-nav="home">Главная</a>
+
+      <div class="flex items-stretch gap-1">
+        <a href="/catalog.html" class="nav-link flex-1" data-nav="catalog">Каталог</a>
+        <button type="button" class="grid w-10 shrink-0 place-items-center rounded-[0.625rem] text-cream/70 transition hover:bg-white/8 hover:text-gold-soft"
+                :aria-expanded="$store.ui.catalogOpen" aria-controls="catalog-menu"
+                :aria-label="$store.ui.catalogOpen ? 'Свернуть категории' : 'Показать категории'"
+                @click="$store.ui.toggleCatalog()">
+          <svg class="size-3.5 transition-transform duration-200" :class="$store.ui.catalogOpen || '-rotate-90'" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg>
+        </button>
+      </div>
+      <ul id="catalog-menu" x-show="$store.ui.catalogOpen" class="mb-2 space-y-0.5 pl-3">
+        <li>
+          <a href="/catalog.html" class="sub-link" :class="$store.ui.activeCategory === '' && 'is-active'"
+             :aria-current="$store.ui.activeCategory === '' && 'page'"><span class="sub-mark"></span>Все товары</a>
+        </li>
+        <template x-for="c in $store.shop.categories" :key="c.id">
+          <li>
+            <a :href="`/catalog.html?category=${c.slug}`" class="sub-link"
+               :class="$store.ui.activeCategory === c.slug && 'is-active'"
+               :aria-current="$store.ui.activeCategory === c.slug && 'page'">
+              <span class="sub-mark"></span><span x-text="c.name"></span>
+            </a>
+          </li>
+        </template>
+      </ul>
+
+      <a href="/favorites.html" class="nav-link" data-nav="favorites">Избранное</a>
+      <a href="/cart.html" class="nav-link" data-nav="cart">Корзина</a>
+      <a href="/contacts.html" class="nav-link" data-nav="contacts">Контакты</a>
+    </nav>
+
+    <div class="mt-auto border-t border-olive-line pt-6">
+      <p class="font-serif text-[1.375rem] font-medium text-gold-soft">+7 (700) 000-00-00</p>
+      <p class="caps mt-1 text-[0.625rem] tracking-[0.18em] text-sage">Ежедневно 9:00 — 21:00</p>
+      <span class="demo-tag mt-3">Демо-контакты</span>
+    </div>
+  </aside>
+
+  <!-- ===================== Основная колонка ===================== -->
+  <div class="flex min-w-0 flex-1 flex-col gap-8">
+    <!-- шапка и контент: при переходе анимируется только контент -->
+
+    <header class="vt-topbar flex min-h-[4.625rem] items-center gap-4 rounded-[1.125rem] bg-white px-4 py-3">
+      <form action="/catalog.html" method="get" role="search" class="relative flex min-w-0 flex-1"
+            @submit="$store.ui.page === 'catalog' && $event.preventDefault()">
+        <label class="sr-only" for="q">Поиск по названию</label>
+        <input id="q" name="q" type="search" x-model="$store.search.q" placeholder="Поиск по названию"
+               class="h-[2.875rem] w-full rounded-xl bg-ivory pl-5 pr-12 text-sm font-light outline-none placeholder:text-hint focus:ring-1 focus:ring-gold/60" />
+        <button type="submit" class="absolute inset-y-0 right-1 grid w-10 place-items-center text-muted" aria-label="Найти">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </button>
+      </form>
+
+      <a href="/favorites.html" data-hnav="favorites" class="caps flex shrink-0 items-center gap-2 rounded-[0.625rem] px-3 py-2 text-[0.625rem] tracking-[0.18em] transition hover:bg-ivory">
+        <svg class="size-[1.125rem]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
+             :fill="$store.fav.count ? 'currentColor' : 'none'" :class="$store.fav.count && 'text-gold'"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>
+        Избранное
+        <span class="counter" x-show="$store.fav.count" x-text="$store.fav.count" x-cloak></span>
+      </a>
+
+      <a href="/cart.html" data-hnav="cart" class="flex h-11 shrink-0 items-center gap-3 rounded-[0.625rem] bg-olive px-4 text-ivory transition hover:bg-olive-deep"
+         :aria-label="`Корзина: ${$store.cart.count} шт.`">
+        <svg class="size-[1.125rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6"/><circle cx="9.5" cy="19.5" r="1.2"/><circle cx="17" cy="19.5" r="1.2"/></svg>
+        <span class="text-[0.8125rem] font-medium" x-text="$store.fmt.price($store.cart.total)">0 ₸</span>
+        <span class="counter" x-text="$store.cart.count">0</span>
+      </a>
+    </header>

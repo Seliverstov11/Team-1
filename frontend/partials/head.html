@@ -1,0 +1,11 @@
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<link rel="icon" href="/img/logo.svg" type="image/svg+xml" />
+<!-- Стили — обычной ссылкой в <head>: страница не рисуется без них (раньше CSS шёл через JS и давал вспышку) -->
+<link rel="stylesheet" href="/src/styles.css" />
+<!-- Данные запрашиваем параллельно с разбором страницы -->
+<link rel="preload" href="/data/categories.json" as="fetch" crossorigin />
+<link rel="preload" href="/data/products.json" as="fetch" crossorigin />
+<!-- blocking="render": первый кадр рисуется уже после Alpine, без промежуточных «пустых» состояний -->
+<script type="module" src="/src/main.js" blocking="render"></script>
