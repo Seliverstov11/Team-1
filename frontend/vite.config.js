@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite'
-import tailwindcss from '@tailwindcss/vite'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,7 +31,7 @@ function htmlIncludes() {
 }
 
 export default defineConfig({
-  plugins: [htmlIncludes(), tailwindcss()],
+  plugins: [htmlIncludes()], // Tailwind — через postcss.config.js
   // host: true — сайт доступен с других компьютеров в локальной сети (http://<IP>:5173).
   // strictPort — порт всегда 5173, чтобы адрес для коллег не «уезжал».
   server: { host: true, port: 5173, strictPort: true, open: true },
