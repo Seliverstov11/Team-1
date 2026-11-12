@@ -1,0 +1,14 @@
+<!-- Первый заход: скелетон той же формы, что и карточки, — без скачков вёрстки -->
+<div x-show="!$store.shop.ready" class="grid grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] gap-5" aria-hidden="true">
+  <template x-for="i in 8" :key="i">
+    <div class="rounded-[1.125rem] bg-white p-2.5">
+      <div class="skeleton aspect-[227/200] rounded-xl"></div>
+      <div class="mx-auto mt-5 h-2 w-1/3 rounded skeleton"></div>
+      <div class="mx-auto mt-3 h-3 w-3/4 rounded skeleton"></div>
+      <div class="mx-auto mt-4 h-5 w-1/3 rounded skeleton"></div>
+      <div class="mt-6 h-11 rounded-[0.625rem] skeleton"></div>
+    </div>
+  </template>
+</div>
+<span class="sr-only" x-show="!$store.shop.ready" role="status">Загружаем товары…</span>
+<p x-show="$store.shop.error" x-text="$store.shop.error" x-cloak class="py-10 text-[#b4664a]"></p>
