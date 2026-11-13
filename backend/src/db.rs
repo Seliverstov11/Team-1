@@ -32,6 +32,14 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "003_attributes_and_limits",
         include_str!("../migrations/003_attributes_and_limits.sql"),
     ),
+    (
+        "004_customer_data_model",
+        include_str!("../migrations/004_customer_data_model.sql"),
+    ),
+    (
+        "005_catalog_from_customer",
+        include_str!("../migrations/005_catalog_from_customer.sql"),
+    ),
 ];
 
 async fn migrate(db: &libsql::Database) -> anyhow::Result<()> {

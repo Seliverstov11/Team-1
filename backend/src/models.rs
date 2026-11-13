@@ -38,6 +38,14 @@ pub struct ProductRow {
     pub order_step_milli: i64,
     pub image_url: Option<String>,
     pub is_archived: i64,
+    /// Варианты одного товара (100 г / 500 г / 1 кг) делят общий group_id
+    /// и показываются одной карточкой с переключателем.
+    pub group_id: Option<String>,
+    pub variant_name: Option<String>,
+    pub wholesale_price_tiyn: Option<i64>,
+    pub wholesale_min_qty: Option<i64>,
+    pub storage_location: Option<String>,
+    pub image_name: Option<String>,
 }
 
 /// Характеристики — произвольные пары, не фиксированные колонки:
@@ -72,6 +80,15 @@ pub struct ProductView {
     pub order_step: String,
     pub image_url: Option<String>,
     pub is_archived: bool,
+    pub group_id: Option<String>,
+    pub variant_name: Option<String>,
+    /// Оптовая цена и количество, с которого она начинает действовать.
+    pub wholesale_price: Option<String>,
+    pub wholesale_min_qty: Option<i64>,
+    pub storage_location: Option<String>,
+    /// Имя будущего файла фотографии из таблицы заказчика: сами фото
+    /// подбирает команда, в каталоге их пока нет.
+    pub image_name: Option<String>,
     pub attributes: Vec<Attribute>,
 }
 
@@ -93,6 +110,12 @@ impl ProductView {
             order_step: milli_to_string(r.order_step_milli),
             image_url: r.image_url,
             is_archived: r.is_archived != 0,
+            group_id: r.group_id,
+            variant_name: r.variant_name,
+            wholesale_price: r.wholesale_price_tiyn.map(tiyn_to_string),
+            wholesale_min_qty: r.wholesale_min_qty,
+            storage_location: r.storage_location,
+            image_name: r.image_name,
             attributes,
         }
     }
@@ -101,6 +124,7 @@ impl ProductView {
 #[derive(Debug, Deserialize)]
 pub struct ProductQuery {
     pub category_id: Option<String>,
+    pub group_id: Option<String>,
     pub search: Option<String>,
     pub in_stock: Option<bool>,
     pub limit: Option<i64>,
@@ -112,11 +136,21 @@ pub struct ProductQuery {
 #[derive(Debug, Deserialize)]
 pub struct OrderRow {
     pub id: String,
+    pub order_no: Option<String>,
     pub client_id: Option<String>,
     pub client_name: String,
     pub client_phone: Option<String>,
     pub status: String,
+    pub items_tiyn: i64,
+    pub delivery_tiyn: i64,
     pub total_tiyn: i64,
+    pub paid_tiyn: i64,
+    pub channel: String,
+    pub city: Option<String>,
+    pub delivery_method: String,
+    pub delivery_address: Option<String>,
+    pub payment_method: String,
+    pub payment_status: String,
     pub note: Option<String>,
     pub source: Option<String>,
     pub assigned_to: Option<String>,
@@ -128,11 +162,23 @@ pub struct OrderRow {
 #[derive(Debug, Serialize)]
 pub struct OrderView {
     pub id: String,
+    pub order_no: Option<String>,
     pub client_id: Option<String>,
     pub client_name: String,
     pub client_phone: Option<String>,
     pub status: String,
+    pub items_total: String,
+    pub delivery: String,
     pub total: String,
+    /// Оплату подтверждает менеджер: QR у заказчика статический,
+    /// система о поступлении денег не узнаёт (26:01).
+    pub paid: String,
+    pub channel: String,
+    pub city: Option<String>,
+    pub delivery_method: String,
+    pub delivery_address: Option<String>,
+    pub payment_method: String,
+    pub payment_status: String,
     pub note: Option<String>,
     pub source: Option<String>,
     pub assigned_to: Option<String>,
@@ -145,11 +191,21 @@ impl From<OrderRow> for OrderView {
     fn from(r: OrderRow) -> Self {
         Self {
             id: r.id,
+            order_no: r.order_no,
             client_id: r.client_id,
             client_name: r.client_name,
             client_phone: r.client_phone,
             status: r.status,
+            items_total: tiyn_to_string(r.items_tiyn),
+            delivery: tiyn_to_string(r.delivery_tiyn),
             total: tiyn_to_string(r.total_tiyn),
+            paid: tiyn_to_string(r.paid_tiyn),
+            channel: r.channel,
+            city: r.city,
+            delivery_method: r.delivery_method,
+            delivery_address: r.delivery_address,
+            payment_method: r.payment_method,
+            payment_status: r.payment_status,
             note: r.note,
             source: r.source,
             assigned_to: r.assigned_to,
@@ -169,6 +225,7 @@ pub struct OrderItemRow {
     pub unit: String,
     pub price_tiyn: i64,
     pub quantity_milli: i64,
+    pub discount_percent: i64,
     pub subtotal_tiyn: i64,
 }
 
@@ -181,6 +238,7 @@ pub struct OrderItemView {
     pub unit: String,
     pub price: String,
     pub quantity: String,
+    pub discount_percent: i64,
     pub subtotal: String,
 }
 
@@ -194,6 +252,7 @@ impl From<OrderItemRow> for OrderItemView {
             unit: r.unit,
             price: tiyn_to_string(r.price_tiyn),
             quantity: milli_to_string(r.quantity_milli),
+            discount_percent: r.discount_percent,
             subtotal: tiyn_to_string(r.subtotal_tiyn),
         }
     }

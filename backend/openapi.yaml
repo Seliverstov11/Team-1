@@ -60,6 +60,10 @@ paths:
         - name: category_id
           in: query
           schema: { type: string }
+        - name: group_id
+          in: query
+          description: Варианты одного товара — всё, что показывается одной карточкой
+          schema: { type: string }
         - name: search
           in: query
           description: Поиск по названию или артикулу
@@ -306,6 +310,33 @@ components:
           items: { $ref: "#/components/schemas/Attribute" }
         image_url: { type: string, nullable: true }
         is_archived: { type: boolean }
+        group_id:
+          type: string
+          nullable: true
+          example: "g-cho-d54"
+          description: >
+            Варианты одного товара (100 г / 500 г / 1 кг) делят общий group_id.
+            Карточка на сайте одна, внутри переключатель; у каждого варианта
+            своя цена и свой остаток.
+        variant_name: { type: string, nullable: true, example: "500 г" }
+        wholesale_price:
+          type: string
+          nullable: true
+          example: "4500.00"
+          description: Оптовая цена, действует от wholesale_min_qty единиц
+        wholesale_min_qty: { type: integer, nullable: true, example: 10 }
+        storage_location:
+          type: string
+          nullable: true
+          example: "Склад А / стеллаж 1 / полка 2"
+          description: Адресное хранение, заполняется при приёмке вручную
+        image_name:
+          type: string
+          nullable: true
+          example: "CHO-D54-500.jpg"
+          description: >
+            Имя будущего файла фотографии из таблицы заказчика. Сами фото
+            подбирает команда, в каталоге их пока нет.
 
     Attribute:
       type: object
@@ -320,10 +351,38 @@ components:
         client_id: { type: string, nullable: true }
         client_name: { type: string }
         client_phone: { type: string, nullable: true }
+        order_no: { type: string, nullable: true, example: "1041" }
         status:
           type: string
-          enum: [new, confirmed, assembling, ready, delivered, cancelled]
-        total: { type: string, example: "5270.00" }
+          enum: [new, confirmed, assembled, handed_over, shipped, delivered, completed, cancelled]
+          description: >
+            Резерв ставится при создании заказа. Списание со склада —
+            при передаче в доставку или выдаче, то есть на handed_over
+            и далее; повторно не выполняется.
+        items_total: { type: string, example: "25200.00" }
+        delivery: { type: string, example: "1200.00" }
+        total: { type: string, example: "26400.00" }
+        paid:
+          type: string
+          example: "26400.00"
+          description: >
+            Сколько фактически получено. Онлайн-оплаты нет: QR Kaspi
+            статический, систему о платеже никто не уведомляет,
+            поэтому факт оплаты проставляет менеджер.
+        channel:
+          type: string
+          enum: [site, site_legacy, whatsapp, instagram, phone, other]
+        city: { type: string, nullable: true, example: "Астана" }
+        delivery_method:
+          type: string
+          enum: [pickup, courier, cdek, kazpost]
+        delivery_address: { type: string, nullable: true }
+        payment_method:
+          type: string
+          enum: [none, cash, kaspi_transfer, online]
+        payment_status:
+          type: string
+          enum: [unpaid, paid, refunded]
         note: { type: string, nullable: true }
         source:
           type: string
@@ -345,6 +404,10 @@ components:
         unit: { type: string }
         price: { type: string, example: "1880.00" }
         quantity: { type: string, example: "2.500" }
+        discount_percent:
+          type: integer
+          example: 0
+          description: Скидка по строке. Промокодов в магазине нет, скидка — ручная.
         subtotal: { type: string, example: "4700.00" }
 
     OrderDetail:

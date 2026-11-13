@@ -21,20 +21,29 @@ pub fn router() -> Router<Db> {
         .route("/{id}", get(get_order).patch(update_status))
 }
 
-const STATUSES: [&str; 6] = [
+const STATUSES: [&str; 8] = [
     "new",
     "confirmed",
-    "assembling",
-    "ready",
+    "assembled",
+    "handed_over",
+    "shipped",
     "delivered",
+    "completed",
     "cancelled",
 ];
 
-const ORDER_COLS: &str = "id, client_id, client_name, client_phone, status, total_tiyn,
+/// Статусы, на которых товар физически покидает склад. По условиям магазина
+/// списание идёт «при выдаче или передаче в доставку», то есть раньше,
+/// чем заказ доедет до клиента.
+const SHIPPED_STATUSES: &[&str] = &["handed_over", "shipped", "delivered", "completed"];
+
+const ORDER_COLS: &str = "id, order_no, client_id, client_name, client_phone, status,
+     items_tiyn, delivery_tiyn, total_tiyn, paid_tiyn, channel, city, delivery_method,
+     delivery_address, payment_method, payment_status,
      note, source, assigned_to, cancelled_reason, created_at, updated_at";
 
-const ITEM_COLS: &str =
-    "id, product_id, product_name, product_sku, unit, price_tiyn, quantity_milli, subtotal_tiyn";
+const ITEM_COLS: &str = "id, product_id, product_name, product_sku, unit, price_tiyn,
+     quantity_milli, discount_percent, subtotal_tiyn";
 
 async fn list_orders(
     State(db): State<Db>,
@@ -99,7 +108,7 @@ async fn create_order(
         return Err(ApiError::BadRequest("имя клиента обязательно".into()));
     }
     if let Some(src) = &body.source
-        && !["site", "whatsapp", "phone", "other"].contains(&src.as_str())
+        && !["site", "whatsapp", "instagram", "phone", "other"].contains(&src.as_str())
     {
         return Err(ApiError::BadRequest(format!("неизвестный источник: {src}")));
     }
@@ -113,8 +122,9 @@ async fn create_order(
     let ts = now();
 
     tx.execute(
-        "INSERT INTO orders (id, client_name, client_phone, source, note, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+        "INSERT INTO orders (id, client_name, client_phone, source, channel,
+                             note, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, IFNULL(?4, 'site'), ?5, ?6, ?6)",
         libsql::params![
             order_id.clone(),
             body.client_name.trim(),
@@ -244,12 +254,13 @@ async fn create_order(
             unit,
             price_tiyn: price,
             quantity_milli: qty,
+            discount_percent: 0,
             subtotal_tiyn: subtotal,
         }));
     }
 
     tx.execute(
-        "UPDATE orders SET total_tiyn = ?1 WHERE id = ?2",
+        "UPDATE orders SET items_tiyn = ?1, total_tiyn = ?1 + delivery_tiyn WHERE id = ?2",
         libsql::params![total, order_id.clone()],
     )
     .await?;
@@ -305,7 +316,19 @@ async fn update_status(
 
     let ts = now();
 
-    if body.status == "cancelled" && current != "cancelled" && current != "delivered" {
+    // Повторное движение по складу не делаем: признак — уже записанное списание.
+    let written_off = {
+        let mut rows = tx
+            .query(
+                "SELECT 1 FROM stock_movements
+                 WHERE order_id = ?1 AND movement_type = 'out' LIMIT 1",
+                libsql::params![id.clone()],
+            )
+            .await?;
+        rows.next().await?.is_some()
+    };
+
+    if body.status == "cancelled" && current != "cancelled" && !written_off {
         tx.execute(
             "UPDATE products SET reserved_milli = reserved_milli - (
                  SELECT IFNULL(SUM(quantity_milli), 0) FROM order_items
@@ -334,7 +357,10 @@ async fn update_status(
         .await?;
     }
 
-    if body.status == "delivered" && current != "delivered" {
+    if SHIPPED_STATUSES.contains(&body.status.as_str())
+        && !SHIPPED_STATUSES.contains(&current.as_str())
+        && !written_off
+    {
         tx.execute(
             "UPDATE products SET
                  stock_milli = stock_milli - (
@@ -355,7 +381,7 @@ async fn update_status(
             "INSERT INTO stock_movements
              (id, product_id, movement_type, quantity_milli, reason, order_id, created_at)
              SELECT lower(hex(randomblob(16))), product_id, 'out',
-                    -quantity_milli, 'выдача заказа', order_id, ?1
+                    -quantity_milli, 'выдача или передача в доставку', order_id, ?1
              FROM order_items WHERE order_id = ?2",
             libsql::params![ts.clone(), id.clone()],
         )

@@ -22,7 +22,8 @@ pub fn router() -> Router<Db> {
 
 const PRODUCT_COLS: &str = "id, category_id, name, sku, description, price_tiyn, unit,
      is_weight, stock_milli, reserved_milli, min_order_milli, order_step_milli,
-     image_url, is_archived";
+     image_url, is_archived, group_id, variant_name, wholesale_price_tiyn,
+     wholesale_min_qty, storage_location, image_name";
 
 async fn list_categories(State(db): State<Db>) -> ApiResult<Json<Vec<Category>>> {
     let conn = db.connect()?;
@@ -85,14 +86,15 @@ async fn list_products(
            AND (?1 IS NULL OR category_id = ?1)
            AND (?2 IS NULL OR name LIKE ?2 OR IFNULL(sku,'') LIKE ?2)
            AND (?3 IS NULL OR (?3 = 1 AND stock_milli - reserved_milli > 0))
-         ORDER BY name
+           AND (?6 IS NULL OR group_id = ?6)
+         ORDER BY name, IFNULL(variant_name, '')
          LIMIT ?4 OFFSET ?5"
     );
 
     let rows = conn
         .query(
             &sql,
-            libsql::params![q.category_id, search, in_stock, limit, offset],
+            libsql::params![q.category_id, search, in_stock, limit, offset, q.group_id],
         )
         .await?;
 
