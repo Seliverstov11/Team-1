@@ -69,6 +69,40 @@ async fn attributes_for(
     Ok(grouped)
 }
 
+/// Персональные цены клиента — одним запросом на всю выдачу, как и
+/// характеристики. Заказчик обещал клиентам «цены, отличные от общих» (28:03).
+async fn personal_prices_for(
+    conn: &libsql::Connection,
+    client_id: Option<&str>,
+    ids: &[String],
+) -> ApiResult<HashMap<String, i64>> {
+    let mut out = HashMap::new();
+    let Some(client_id) = client_id else {
+        return Ok(out);
+    };
+    if ids.is_empty() {
+        return Ok(out);
+    }
+
+    let placeholders = (2..=ids.len() + 1)
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT product_id, price_tiyn FROM client_prices
+         WHERE client_id = ?1 AND product_id IN ({placeholders})"
+    );
+
+    let mut params: Vec<libsql::Value> = vec![libsql::Value::from(client_id.to_string())];
+    params.extend(ids.iter().map(|s| libsql::Value::from(s.clone())));
+
+    let mut rows = conn.query(&sql, params).await?;
+    while let Some(row) = rows.next().await? {
+        out.insert(row.get::<String>(0)?, row.get::<i64>(1)?);
+    }
+    Ok(out)
+}
+
 async fn list_products(
     State(db): State<Db>,
     Query(q): Query<ProductQuery>,
@@ -101,19 +135,27 @@ async fn list_products(
     let products: Vec<ProductRow> = collect(rows).await?;
     let ids: Vec<String> = products.iter().map(|p| p.id.clone()).collect();
     let mut attrs = attributes_for(&conn, &ids).await?;
+    let personal = personal_prices_for(&conn, q.client_id.as_deref(), &ids).await?;
 
     Ok(Json(
         products
             .into_iter()
             .map(|p| {
                 let a = attrs.remove(&p.id).unwrap_or_default();
-                ProductView::from_row(p, a)
+                let own = personal.get(&p.id).copied();
+                let mut view = ProductView::from_row(p, a);
+                view.personal_price = own.map(crate::num::tiyn_to_string);
+                view
             })
             .collect(),
     ))
 }
 
-async fn get_product(State(db): State<Db>, Path(id): Path<String>) -> ApiResult<Json<ProductView>> {
+async fn get_product(
+    State(db): State<Db>,
+    Path(id): Path<String>,
+    Query(q): Query<ProductQuery>,
+) -> ApiResult<Json<ProductView>> {
     let conn = db.connect()?;
     let rows = conn
         .query(
@@ -125,6 +167,10 @@ async fn get_product(State(db): State<Db>, Path(id): Path<String>) -> ApiResult<
     let row: ProductRow = first(rows).await?.ok_or(ApiError::NotFound)?;
     let mut attrs = attributes_for(&conn, std::slice::from_ref(&id)).await?;
     let a = attrs.remove(&id).unwrap_or_default();
+    let personal =
+        personal_prices_for(&conn, q.client_id.as_deref(), std::slice::from_ref(&id)).await?;
 
-    Ok(Json(ProductView::from_row(row, a)))
+    let mut view = ProductView::from_row(row, a);
+    view.personal_price = personal.get(&id).copied().map(crate::num::tiyn_to_string);
+    Ok(Json(view))
 }

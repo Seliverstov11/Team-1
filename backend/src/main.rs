@@ -2,6 +2,7 @@ mod db;
 mod error;
 mod models;
 mod num;
+mod pricing;
 mod routes;
 
 use axum::{Json, Router, routing::get};

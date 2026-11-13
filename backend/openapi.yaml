@@ -64,6 +64,10 @@ paths:
           in: query
           description: Варианты одного товара — всё, что показывается одной карточкой
           schema: { type: string }
+        - name: client_id
+          in: query
+          description: Под каким клиентом смотрим каталог — для его персональных цен
+          schema: { type: string }
         - name: search
           in: query
           description: Поиск по названию или артикулу
@@ -184,8 +188,8 @@ paths:
       summary: Сменить статус заказа
       description: |
         `cancelled` снимает резерв, склад не трогает.
-        `delivered` списывает остаток и снимает резерв.
-        Повторный перевод в тот же статус склад не меняет.
+        `handed_over` и дальше — списывает остаток и снимает резерв.
+        Повторное списание по тому же заказу не выполняется.
       parameters:
         - name: id
           in: path
@@ -204,6 +208,38 @@ paths:
               schema: { $ref: "#/components/schemas/Order" }
         "400":
           description: Неизвестный статус
+        "404":
+          description: Не найден
+
+  /api/orders/{id}/payment:
+    post:
+      tags: [orders]
+      summary: Подтвердить оплату
+      description: |
+        Оплату проставляет человек. QR Kaspi у заказчика статический,
+        уведомления о платеже система не получает, поэтому автоматической
+        отметки «оплачен» не существует и быть не может.
+
+        Возврат принимается только по оплаченному заказу: возвращать
+        нечего, если денег не было.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfirmPayment" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "400":
+          description: Возврат без оплаты, сумма больше итога или онлайн-оплата
         "404":
           description: Не найден
 
@@ -330,6 +366,13 @@ components:
           nullable: true
           example: "Склад А / стеллаж 1 / полка 2"
           description: Адресное хранение, заполняется при приёмке вручную
+        personal_price:
+          type: string
+          nullable: true
+          example: "3000.00"
+          description: >
+            Цена этого клиента, если запрос пришёл с client_id и цена
+            заведена. Показывать её вместо розничной.
         image_name:
           type: string
           nullable: true
@@ -408,6 +451,11 @@ components:
           type: integer
           example: 0
           description: Скидка по строке. Промокодов в магазине нет, скидка — ручная.
+        price_kind:
+          type: string
+          nullable: true
+          enum: [retail, wholesale, personal]
+          description: По какой из трёх цен посчитана строка
         subtotal: { type: string, example: "4700.00" }
 
     OrderDetail:
@@ -421,13 +469,41 @@ components:
 
     CreateOrder:
       type: object
-      required: [client_name, items]
+      required: [client_name, client_phone, items]
+      description: |
+        Цену строки считает бэкенд, фронт её не присылает: берётся
+        персональная цена клиента, иначе оптовая по количеству, иначе
+        розничная. Что именно применилось — в `price_kind` строки заказа.
       properties:
         client_name: { type: string }
-        client_phone: { type: string }
+        client_phone:
+          type: string
+          description: Обязателен — заказчик просил имя, телефон и адрес на оформлении
+        client_id:
+          type: string
+          description: Известный клиент, к нему применяются его персональные цены
         source:
           type: string
-          enum: [site, whatsapp, phone, other]
+          enum: [site, whatsapp, instagram, phone, other]
+        city: { type: string, example: "Астана" }
+        delivery_method:
+          type: string
+          enum: [pickup, courier, cdek, kazpost]
+          default: pickup
+        delivery_address:
+          type: string
+          description: Адрес или пункт выдачи. Для всего, кроме самовывоза, обязателен
+        delivery:
+          type: string
+          example: "1200.00"
+          description: >
+            Стоимость доставки строкой. Бэкенд её не рассчитывает: служб
+            доставки и тарифов заказчик пока не назвал.
+        payment_method:
+          type: string
+          enum: [none, cash, kaspi_transfer]
+          default: none
+          description: Онлайн-оплата отбивается с ошибкой — её в магазине нет
         note: { type: string }
         items:
           type: array
@@ -441,6 +517,23 @@ components:
                 type: string
                 example: "2.5"
                 description: Строкой, до трёх знаков после точки
+
+    ConfirmPayment:
+      type: object
+      required: [payment_status]
+      properties:
+        payment_status:
+          type: string
+          enum: [unpaid, paid, refunded]
+        payment_method:
+          type: string
+          enum: [none, cash, kaspi_transfer]
+        paid:
+          type: string
+          example: "26400.00"
+          description: >
+            Сколько получено. Без этого поля при `paid` проставляется
+            весь итог заказа. Больше итога не принимается.
 
     UpdateOrderStatus:
       type: object

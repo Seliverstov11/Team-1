@@ -89,6 +89,9 @@ pub struct ProductView {
     /// Имя будущего файла фотографии из таблицы заказчика: сами фото
     /// подбирает команда, в каталоге их пока нет.
     pub image_name: Option<String>,
+    /// Цена этого клиента, если запрос пришёл с client_id и цена заведена.
+    /// Показывать её вместо розничной.
+    pub personal_price: Option<String>,
     pub attributes: Vec<Attribute>,
 }
 
@@ -116,6 +119,7 @@ impl ProductView {
             wholesale_min_qty: r.wholesale_min_qty,
             storage_location: r.storage_location,
             image_name: r.image_name,
+            personal_price: None,
             attributes,
         }
     }
@@ -125,6 +129,9 @@ impl ProductView {
 pub struct ProductQuery {
     pub category_id: Option<String>,
     pub group_id: Option<String>,
+    /// Клиент, под которым смотрят каталог: для него подставляется
+    /// персональная цена, если она заведена.
+    pub client_id: Option<String>,
     pub search: Option<String>,
     pub in_stock: Option<bool>,
     pub limit: Option<i64>,
@@ -239,6 +246,8 @@ pub struct OrderItemView {
     pub price: String,
     pub quantity: String,
     pub discount_percent: i64,
+    /// retail | wholesale | personal — по какой цене посчитана строка.
+    pub price_kind: Option<String>,
     pub subtotal: String,
 }
 
@@ -253,6 +262,7 @@ impl From<OrderItemRow> for OrderItemView {
             price: tiyn_to_string(r.price_tiyn),
             quantity: milli_to_string(r.quantity_milli),
             discount_percent: r.discount_percent,
+            price_kind: None,
             subtotal: tiyn_to_string(r.subtotal_tiyn),
         }
     }
@@ -276,9 +286,33 @@ pub struct CreateOrderItem {
 pub struct CreateOrder {
     pub client_name: String,
     pub client_phone: Option<String>,
+    /// Если клиент известен, к нему применяются его персональные цены.
+    pub client_id: Option<String>,
     pub source: Option<String>,
     pub note: Option<String>,
+    pub city: Option<String>,
+    /// pickup | courier | cdek | kazpost. По умолчанию самовывоз.
+    pub delivery_method: Option<String>,
+    /// Адрес или пункт выдачи. Для доставки обязателен: на оформлении
+    /// заказчик просил имя, телефон и адрес (19:19).
+    pub delivery_address: Option<String>,
+    /// Стоимость доставки строкой: «1200.00». Считает менеджер или тариф,
+    /// бэкенд её не выдумывает — служб доставки заказчик ещё не назвал.
+    pub delivery: Option<String>,
+    /// none | cash | kaspi_transfer. Онлайн-оплаты не будет (26:01).
+    pub payment_method: Option<String>,
     pub items: Vec<CreateOrderItem>,
+}
+
+/// Оплату подтверждает человек: QR у заказчика статический, система
+/// о поступлении денег не узнаёт.
+#[derive(Debug, Deserialize)]
+pub struct ConfirmPayment {
+    /// unpaid | paid | refunded
+    pub payment_status: String,
+    pub payment_method: Option<String>,
+    /// Сколько получено, строкой. По умолчанию — весь итог заказа.
+    pub paid: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

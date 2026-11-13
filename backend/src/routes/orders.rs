@@ -1,7 +1,7 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    routing::get,
+    routing::{get, post},
 };
 
 use super::{collect, first, new_id, now};
@@ -9,16 +9,18 @@ use crate::{
     db::Db,
     error::{ApiError, ApiResult},
     models::{
-        CreateOrder, OrderDetail, OrderItemRow, OrderItemView, OrderQuery, OrderRow, OrderView,
-        UpdateOrderStatus,
+        ConfirmPayment, CreateOrder, OrderDetail, OrderItemRow, OrderItemView, OrderQuery,
+        OrderRow, OrderView, UpdateOrderStatus,
     },
-    num::{MILLI, parse_milli},
+    num::{MILLI, parse_milli, parse_tiyn},
+    pricing::effective_price,
 };
 
 pub fn router() -> Router<Db> {
     Router::new()
         .route("/", get(list_orders).post(create_order))
         .route("/{id}", get(get_order).patch(update_status))
+        .route("/{id}/payment", post(confirm_payment))
 }
 
 const STATUSES: [&str; 8] = [
@@ -36,6 +38,12 @@ const STATUSES: [&str; 8] = [
 /// списание идёт «при выдаче или передаче в доставку», то есть раньше,
 /// чем заказ доедет до клиента.
 const SHIPPED_STATUSES: &[&str] = &["handed_over", "shipped", "delivered", "completed"];
+
+const DELIVERY_METHODS: &[&str] = &["pickup", "courier", "cdek", "kazpost"];
+/// Онлайн-оплаты в магазине нет: заказчик отказался от интеграции (26:01),
+/// остаются наличные и перевод Kaspi по статическому QR.
+const PAYMENT_METHODS: &[&str] = &["none", "cash", "kaspi_transfer", "online"];
+const PAYMENT_STATUSES: &[&str] = &["unpaid", "paid", "refunded"];
 
 const ORDER_COLS: &str = "id, order_no, client_id, client_name, client_phone, status,
      items_tiyn, delivery_tiyn, total_tiyn, paid_tiyn, channel, city, delivery_method,
@@ -113,23 +121,84 @@ async fn create_order(
         return Err(ApiError::BadRequest(format!("неизвестный источник: {src}")));
     }
 
+    let delivery_method = body.delivery_method.as_deref().unwrap_or("pickup").to_string();
+    if !DELIVERY_METHODS.contains(&delivery_method.as_str()) {
+        return Err(ApiError::BadRequest(format!(
+            "неизвестный способ получения: {delivery_method}"
+        )));
+    }
+    // Доставка без адреса уедет в никуда. У заказчика в таблице такие заказы
+    // помечены «Уточнить у клиента», и менеджер обязан добрать адрес до
+    // отправки — на сайте же это обычное обязательное поле (19:19).
+    if delivery_method != "pickup"
+        && body
+            .delivery_address
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("")
+            .is_empty()
+    {
+        return Err(ApiError::BadRequest(
+            "для доставки нужен адрес или пункт выдачи".into(),
+        ));
+    }
+    if body.client_phone.as_deref().map(str::trim).unwrap_or("").is_empty() {
+        return Err(ApiError::BadRequest("телефон обязателен".into()));
+    }
+
+    let payment_method = body.payment_method.as_deref().unwrap_or("none").to_string();
+    if !PAYMENT_METHODS.contains(&payment_method.as_str()) {
+        return Err(ApiError::BadRequest(format!(
+            "неизвестный способ оплаты: {payment_method}"
+        )));
+    }
+    if payment_method == "online" {
+        return Err(ApiError::BadRequest(
+            "онлайн-оплаты в магазине нет: наличные или перевод Kaspi".into(),
+        ));
+    }
+
+    let delivery_tiyn = match body.delivery.as_deref() {
+        Some(v) => parse_tiyn(v).map_err(|e| ApiError::BadRequest(format!("доставка: {e}")))?,
+        None => 0,
+    };
+    if delivery_tiyn < 0 {
+        return Err(ApiError::BadRequest("доставка не может быть отрицательной".into()));
+    }
+
     let conn = db.connect()?;
     let tx = conn
         .transaction_with_behavior(libsql::TransactionBehavior::Immediate)
         .await?;
 
+    if let Some(cid) = &body.client_id {
+        let mut rows = tx
+            .query("SELECT 1 FROM clients WHERE id = ?1", libsql::params![cid.clone()])
+            .await?;
+        if rows.next().await?.is_none() {
+            return Err(ApiError::BadRequest(format!("клиент {cid} не найден")));
+        }
+    }
+
     let order_id = new_id();
     let ts = now();
 
     tx.execute(
-        "INSERT INTO orders (id, client_name, client_phone, source, channel,
-                             note, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, IFNULL(?4, 'site'), ?5, ?6, ?6)",
+        "INSERT INTO orders (id, client_id, client_name, client_phone, source, channel,
+                             city, delivery_method, delivery_address, delivery_tiyn,
+                             payment_method, note, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, IFNULL(?5, 'site'), ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)",
         libsql::params![
             order_id.clone(),
+            body.client_id.clone(),
             body.client_name.trim(),
             body.client_phone.clone(),
             body.source.clone(),
+            body.city.clone(),
+            delivery_method.clone(),
+            body.delivery_address.clone(),
+            delivery_tiyn,
+            payment_method.clone(),
             body.note.clone(),
             ts.clone()
         ],
@@ -148,10 +217,13 @@ async fn create_order(
 
         let rows = tx
             .query(
-                "SELECT name, sku, unit, price_tiyn, stock_milli, reserved_milli, is_archived,
-                        min_order_milli, order_step_milli
-                 FROM products WHERE id = ?1",
-                libsql::params![item.product_id.clone()],
+                "SELECT p.name, p.sku, p.unit, p.price_tiyn, p.stock_milli, p.reserved_milli,
+                        p.is_archived, p.min_order_milli, p.order_step_milli,
+                        p.wholesale_price_tiyn, p.wholesale_min_qty,
+                        (SELECT cp.price_tiyn FROM client_prices cp
+                          WHERE cp.product_id = p.id AND cp.client_id = ?2)
+                 FROM products p WHERE p.id = ?1",
+                libsql::params![item.product_id.clone(), body.client_id.clone()],
             )
             .await?;
         let Some(row) = ({
@@ -173,6 +245,9 @@ async fn create_order(
         let archived: i64 = row.get(6)?;
         let min_order: i64 = row.get(7)?;
         let step: i64 = row.get(8)?;
+        let wholesale: Option<i64> = row.get(9)?;
+        let wholesale_min: Option<i64> = row.get(10)?;
+        let personal: Option<i64> = row.get(11)?;
 
         if archived != 0 {
             return Err(ApiError::BadRequest(format!("товар «{name}» снят с продажи")));
@@ -200,6 +275,10 @@ async fn create_order(
                 item.quantity
             )));
         }
+
+        // Опт и персональная цена подставляются здесь, а не на фронте:
+        // цену заказа считает тот, кто отвечает за деньги.
+        let (price, price_kind) = effective_price(price, wholesale, wholesale_min, personal, qty);
 
         let subtotal = price * qty / MILLI;
         total += subtotal;
@@ -246,7 +325,7 @@ async fn create_order(
         )
         .await?;
 
-        saved.push(OrderItemView::from(OrderItemRow {
+        let mut view = OrderItemView::from(OrderItemRow {
             id: item_id,
             product_id: Some(item.product_id.clone()),
             product_name: name,
@@ -256,7 +335,9 @@ async fn create_order(
             quantity_milli: qty,
             discount_percent: 0,
             subtotal_tiyn: subtotal,
-        }));
+        });
+        view.price_kind = Some(price_kind.as_str().to_string());
+        saved.push(view);
     }
 
     tx.execute(
@@ -399,6 +480,104 @@ async fn update_status(
             body.cancelled_reason.clone(),
             body.assigned_to.clone(),
             ts,
+            id.clone()
+        ],
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    let rows = conn
+        .query(
+            &format!("SELECT {ORDER_COLS} FROM orders WHERE id = ?1"),
+            libsql::params![id],
+        )
+        .await?;
+    let order: OrderRow = first(rows).await?.ok_or(ApiError::NotFound)?;
+    Ok(Json(OrderView::from(order)))
+}
+
+
+/// Подтверждение оплаты. Отдельный эндпоинт, потому что оплата у заказчика
+/// живёт вне системы: QR статический, уведомления о платеже не приходит,
+/// факт денег проставляет менеджер руками.
+async fn confirm_payment(
+    State(db): State<Db>,
+    Path(id): Path<String>,
+    Json(body): Json<ConfirmPayment>,
+) -> ApiResult<Json<OrderView>> {
+    if !PAYMENT_STATUSES.contains(&body.payment_status.as_str()) {
+        return Err(ApiError::BadRequest(format!(
+            "неизвестный статус оплаты: {}",
+            body.payment_status
+        )));
+    }
+    if let Some(m) = &body.payment_method {
+        if !PAYMENT_METHODS.contains(&m.as_str()) {
+            return Err(ApiError::BadRequest(format!("неизвестный способ оплаты: {m}")));
+        }
+        if m == "online" {
+            return Err(ApiError::BadRequest(
+                "онлайн-оплаты в магазине нет: наличные или перевод Kaspi".into(),
+            ));
+        }
+    }
+
+    let conn = db.connect()?;
+    let tx = conn
+        .transaction_with_behavior(libsql::TransactionBehavior::Immediate)
+        .await?;
+
+    let rows = tx
+        .query(
+            "SELECT total_tiyn, payment_status FROM orders WHERE id = ?1",
+            libsql::params![id.clone()],
+        )
+        .await?;
+    let Some(row) = ({
+        let mut rows = rows;
+        rows.next().await?
+    }) else {
+        return Err(ApiError::NotFound);
+    };
+    let total: i64 = row.get(0)?;
+    let current: String = row.get(1)?;
+
+    // Возврат — это возврат чего-то полученного. Если денег не было,
+    // возвращать нечего, и такой заказ просто отменяют.
+    if body.payment_status == "refunded" && current != "paid" {
+        return Err(ApiError::BadRequest(
+            "возврат возможен только по оплаченному заказу".into(),
+        ));
+    }
+
+    let paid = match (body.paid.as_deref(), body.payment_status.as_str()) {
+        (Some(v), _) => parse_tiyn(v).map_err(|e| ApiError::BadRequest(format!("оплачено: {e}")))?,
+        (None, "paid") => total,
+        (None, _) => 0,
+    };
+    if paid < 0 {
+        return Err(ApiError::BadRequest("оплачено не может быть отрицательным".into()));
+    }
+    if paid > total {
+        return Err(ApiError::BadRequest(format!(
+            "оплачено {} больше итога заказа {}",
+            crate::num::tiyn_to_string(paid),
+            crate::num::tiyn_to_string(total)
+        )));
+    }
+
+    tx.execute(
+        "UPDATE orders SET payment_status = ?1,
+                           payment_method = IFNULL(?2, payment_method),
+                           paid_tiyn = ?3,
+                           updated_at = ?4
+         WHERE id = ?5",
+        libsql::params![
+            body.payment_status.clone(),
+            body.payment_method.clone(),
+            paid,
+            now(),
             id.clone()
         ],
     )
