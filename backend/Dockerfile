@@ -9,8 +9,8 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/target/release/sweet-master-api /usr/local/bin/api
-ENV PORT=8080 DATABASE_PATH=/data/sweet-master.db
+COPY --from=build /app/target/release/bakeloom-api /usr/local/bin/api
+ENV PORT=8080 DATABASE_PATH=/data/bakeloom.db
 VOLUME /data
 EXPOSE 8080
 CMD ["api"]

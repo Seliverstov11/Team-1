@@ -1,11 +1,46 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-pub type Db = Arc<libsql::Database>;
+/// Обёртка над базой: каждое соединение ждёт до 5 секунд, если файл занят
+/// другой записью, вместо мгновенной ошибки «database is locked».
+pub struct Database(libsql::Database);
+
+impl Database {
+    pub fn connect(&self) -> libsql::Result<libsql::Connection> {
+        let conn = self.0.connect()?;
+        // Удалённая Turso сама разруливает конкурентность, там настройки нет.
+        let _ = conn.busy_timeout(Duration::from_secs(5));
+        Ok(conn)
+    }
+}
+
+pub type Db = Arc<Database>;
 
 /// Без переменных окружения поднимается локальный файл: проект должен
 /// запускаться по README на чистой машине, без токенов и без интернета (H6, H12).
 /// Turso подключается только когда заданы TURSO_DATABASE_URL и TURSO_AUTH_TOKEN.
 pub async fn connect() -> anyhow::Result<Db> {
+    let path = std::env::var("DATABASE_PATH").unwrap_or_else(|_| "data.db".into());
+    connect_with(&path).await
+}
+
+/// Локальный файл по пути — для тестов, каждому своя временная БД.
+pub async fn connect_local(path: &str) -> anyhow::Result<Db> {
+    let db = libsql::Builder::new_local(path).build().await?;
+    enable_wal(&db).await?;
+    migrate(&db).await?;
+    Ok(Arc::new(Database(db)))
+}
+
+/// В режиме WAL чтение не блокирует запись: CRM и сайт работают с базой
+/// одновременно. Настройка хранится в самом файле.
+async fn enable_wal(db: &libsql::Database) -> anyhow::Result<()> {
+    let conn = db.connect()?;
+    let mut rows = conn.query("PRAGMA journal_mode = WAL", ()).await?;
+    while rows.next().await?.is_some() {}
+    Ok(())
+}
+
+async fn connect_with(path: &str) -> anyhow::Result<Db> {
     let db = match (
         std::env::var("TURSO_DATABASE_URL").ok(),
         std::env::var("TURSO_AUTH_TOKEN").ok(),
@@ -15,14 +50,15 @@ pub async fn connect() -> anyhow::Result<Db> {
             libsql::Builder::new_remote(url, token).build().await?
         }
         _ => {
-            let path = std::env::var("DATABASE_PATH").unwrap_or_else(|_| "data.db".into());
             tracing::info!("БД: локальный файл {path}");
-            libsql::Builder::new_local(&path).build().await?
+            let db = libsql::Builder::new_local(path).build().await?;
+            enable_wal(&db).await?;
+            db
         }
     };
 
     migrate(&db).await?;
-    Ok(Arc::new(db))
+    Ok(Arc::new(Database(db)))
 }
 
 const MIGRATIONS: &[(&str, &str)] = &[
