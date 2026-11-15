@@ -1,10 +1,22 @@
+# Запуск: cp .env.example .env && docker compose up --build
+# Значения подставляются из .env рядом с этим файлом.
 services:
   api:
     build: .
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:8080"
     environment:
-      RUST_LOG: bakeloom_api=info,tower_http=info
+      RUST_LOG: ${RUST_LOG:-bakeloom_api=info,tower_http=info}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
+      WHOLESALE_ENABLED: ${WHOLESALE_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      SHOP_NAME: ${SHOP_NAME:-BAKELOOM}
+      SHOP_BIN: ${SHOP_BIN:-}
+      SHOP_ADDRESS: ${SHOP_ADDRESS:-}
+      SESSION_DAYS: ${SESSION_DAYS:-30}
+      TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:-}
+      TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}
     volumes:
       - dbdata:/data
 
