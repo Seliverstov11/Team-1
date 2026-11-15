@@ -40,6 +40,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "005_catalog_from_customer",
         include_str!("../migrations/005_catalog_from_customer.sql"),
     ),
+    ("006_crm_auth", include_str!("../migrations/006_crm_auth.sql")),
 ];
 
 async fn migrate(db: &libsql::Database) -> anyhow::Result<()> {
