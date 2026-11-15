@@ -3,6 +3,7 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod models;
+pub mod notify;
 pub mod num;
 pub mod pricing;
 pub mod routes;
