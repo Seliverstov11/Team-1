@@ -1,5 +1,9 @@
 pub mod catalog;
+pub mod clients;
+pub mod dashboard;
+pub mod employees;
 pub mod invoice;
+pub mod me;
 pub mod orders;
 pub mod warehouse;
 
@@ -17,6 +21,10 @@ pub fn router() -> Router<Db> {
         .nest("/catalog", catalog::router())
         .nest("/orders", orders::router())
         .nest("/warehouse", warehouse::router())
+        .nest("/clients", clients::router())
+        .nest("/employees", employees::router())
+        .nest("/me", me::router())
+        .merge(dashboard::router())
 }
 
 fn decode<T: DeserializeOwned>(row: &libsql::Row) -> ApiResult<T> {
