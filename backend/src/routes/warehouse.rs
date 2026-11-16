@@ -238,8 +238,10 @@ struct AssemblyOrder {
     order: OrderView,
     /// Позиции в порядке обхода склада — по полкам.
     items: Vec<OrderItemView>,
-    picked: usize,
-    total: usize,
+    /// Сколько позиций собрано и сколько всего. Не `total` и `picked`:
+    /// они перекрыли бы денежный итог заказа и флаг позиции (ревью PR #13).
+    picked_count: usize,
+    items_count: usize,
 }
 
 /// Очередь сборки: подтверждённые заказы, срочные сверху, позиции
@@ -264,13 +266,13 @@ async fn assembly_queue(staff: Staff, State(db): State<Db>) -> ApiResult<Json<Ve
         items.sort_by(|a, b| {
             a.storage_location.as_deref().unwrap_or("я").cmp(b.storage_location.as_deref().unwrap_or("я"))
         });
-        let total = items.len();
-        let picked = items.iter().filter(|i| i.picked != 0).count();
+        let items_count = items.len();
+        let picked_count = items.iter().filter(|i| i.picked != 0).count();
         out.push(AssemblyOrder {
             order: OrderView::from(o).without_payment(),
             items: items.into_iter().map(OrderItemView::from).collect(),
-            picked,
-            total,
+            picked_count,
+            items_count,
         });
     }
     Ok(Json(out))

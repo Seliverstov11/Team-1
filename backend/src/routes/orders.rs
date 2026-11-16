@@ -204,9 +204,13 @@ pub async fn log_event(
 
 // ─── Расчёты ─────────────────────────────────────────────────────────────────
 
-/// Скидка в процентах по строке ставится менеджером (ФТ-Ц-08).
+/// Сумма строки с округлением до тиына «от половины вверх» (#37):
+/// 0,5 кг × 333,33 ₸ = 166,665 → 166,67 ₸. Скидка в процентах ставится
+/// менеджером (ФТ-Ц-08) и округляется так же. Деньги не бывают
+/// отрицательными, поэтому достаточно прибавить половину делителя.
 pub fn line_subtotal(price: i64, qty: i64, discount: i64) -> i64 {
-    price * qty / MILLI * (100 - discount) / 100
+    let base = (price * qty + MILLI / 2) / MILLI;
+    (base * (100 - discount) + 50) / 100
 }
 
 fn check_qty(name: &str, unit: &str, qty: i64, min: i64, step: i64) -> ApiResult<()> {
@@ -241,6 +245,39 @@ async fn recalc_totals(conn: &libsql::Connection, order_id: &str, ts: &str) -> A
         libsql::params![order_id, ts],
     )
     .await?;
+    Ok(())
+}
+
+/// Статус оплаты по сумме после правки состава или доставки (ревью PR #13):
+/// оплачено не меньше итога — «оплачен», меньше — «частично». Переплату
+/// видно в поле `overpaid`, а в журнал пишется напоминание вернуть разницу.
+async fn sync_payment(conn: &libsql::Connection, order_id: &str, actor: &ActorRef, ts: &str) -> ApiResult<()> {
+    let o = load_order(conn, order_id).await?;
+    if !matches!(o.payment_status.as_str(), "paid" | "partial") || o.paid_tiyn <= 0 {
+        return Ok(());
+    }
+    let status = if o.paid_tiyn >= o.total_tiyn { "paid" } else { "partial" };
+    if status != o.payment_status {
+        conn.execute(
+            "UPDATE orders SET payment_status = ?1, updated_at = ?2 WHERE id = ?3",
+            libsql::params![status, ts, order_id],
+        )
+        .await?;
+        let msg = format!(
+            "Итог изменился: {} ₸, получено {} ₸ — оплата: {}",
+            tiyn_to_string(o.total_tiyn),
+            tiyn_to_string(o.paid_tiyn),
+            payment_title(status)
+        );
+        log_event(conn, order_id, actor, "payment", &msg, None, ts).await?;
+    }
+    if o.paid_tiyn > o.total_tiyn {
+        let msg = format!(
+            "Переплата {} ₸ — оформите возврат разницы клиенту",
+            tiyn_to_string(o.paid_tiyn - o.total_tiyn)
+        );
+        log_event(conn, order_id, actor, "payment", &msg, None, ts).await?;
+    }
     Ok(())
 }
 
@@ -505,9 +542,12 @@ async fn create_order(actor: MaybeActor, State(db): State<Db>, Json(body): Json<
     if !PAYMENT_METHODS.contains(&payment_method.as_str()) {
         return Err(bad(format!("неизвестный способ оплаты: {payment_method}")));
     }
-    let delivery_tiyn = match body.delivery.as_deref() {
-        Some(v) => parse_tiyn(v).map_err(|e| bad(format!("доставка: {e}")))?,
-        None => 0,
+    // Стоимость доставки заказа с сайта считает сервер, а не браузер (ревью
+    // PR #13): иначе гость мог прислать «0». Менеджер задаёт её сам.
+    let delivery_tiyn = match (&staff, body.delivery.as_deref()) {
+        (Some(_), Some(v)) => parse_tiyn(v).map_err(|e| bad(format!("доставка: {e}")))?,
+        (Some(_), None) => 0,
+        (None, _) => site_delivery(&delivery_method, body.city.as_deref()),
     };
     if staff.is_none() && (body.is_urgent.is_some() || body.assigned_to.is_some()) {
         return Err(ApiError::Forbidden("срочность и ответственного ставит менеджер".into()));
@@ -640,6 +680,21 @@ async fn create_order(actor: MaybeActor, State(db): State<Db>, Json(body): Json<
     Ok(Json(d))
 }
 
+/// Тариф доставки для заказа с сайта — по условиям магазина (ФТ-О-04):
+/// самовывоз бесплатно, курьер по Астане 1 200 ₸, остальное — межгород 2 500 ₸.
+/// Менеджер может поправить стоимость в карточке заказа.
+pub fn site_delivery(method: &str, city: Option<&str>) -> i64 {
+    let astana = city.map(str::trim).filter(|c| !c.is_empty()).is_none_or(|c| {
+        let c = c.to_lowercase();
+        c.contains("астана") || c.contains("astana")
+    });
+    match method {
+        "pickup" => 0,
+        "courier" if astana => 120_000,
+        _ => 250_000,
+    }
+}
+
 async fn ensure_employee(conn: &libsql::Connection, id: &str) -> ApiResult<String> {
     let mut r = conn
         .query("SELECT name FROM employees WHERE id = ?1 AND is_active = 1", libsql::params![id])
@@ -732,6 +787,7 @@ async fn update_order(
         )
         .await?;
         recalc_totals(&tx, &id, &ts).await?;
+        sync_payment(&tx, &id, &actor, &ts).await?;
         let msg = format!(
             "Доставка: {method}{}, {} ₸",
             address.map(|a| format!(", {a}")).unwrap_or_default(),
@@ -907,6 +963,7 @@ async fn add_item(staff: Staff, State(db): State<Db>, Path(id): Path<String>, Js
     recalc_totals(&tx, &id, &ts).await?;
     let msg = format!("Добавлено: {} — {} {}", p.name, milli_to_string(qty), p.unit);
     log_event(&tx, &id, &ActorRef::from(&staff), "items", &msg, None, &ts).await?;
+    sync_payment(&tx, &id, &ActorRef::from(&staff), &ts).await?;
     tx.commit().await?;
     Ok(Json(detail(&conn, &id, Some(&staff)).await?))
 }
@@ -988,6 +1045,7 @@ async fn update_item(
     if !notes.is_empty() {
         log_event(&tx, &id, &ActorRef::from(&staff), "items", &notes.join("; "), None, &ts).await?;
     }
+    sync_payment(&tx, &id, &ActorRef::from(&staff), &ts).await?;
     tx.commit().await?;
     Ok(Json(detail(&conn, &id, Some(&staff)).await?))
 }
@@ -1016,6 +1074,7 @@ async fn remove_item(
     sync_shortage(&tx, &id, &ts).await?;
     let msg = format!("Убрано: {} — {} {}", item.product_name, milli_to_string(item.quantity_milli), item.unit);
     log_event(&tx, &id, &ActorRef::from(&staff), "items", &msg, None, &ts).await?;
+    sync_payment(&tx, &id, &ActorRef::from(&staff), &ts).await?;
     tx.commit().await?;
     Ok(Json(detail(&conn, &id, Some(&staff)).await?))
 }
@@ -1304,5 +1363,24 @@ mod tests {
         // 3 шт по 1 000 ₸ со скидкой 10 % = 2 700 ₸
         assert_eq!(line_subtotal(100_000, 3_000, 10), 270_000);
         assert_eq!(line_subtotal(100_000, 3_000, 0), 300_000);
+    }
+
+    #[test]
+    fn сумма_строки_округляется_от_половины() {
+        // #37: 0,5 кг × 333,33 ₸ = 166,665 → 166,67
+        assert_eq!(line_subtotal(33_333, 500, 0), 16_667);
+        // 0,7 кг × 1 999,99 ₸ = 1 399,993 → 1 399,99
+        assert_eq!(line_subtotal(199_999, 700, 0), 139_999);
+        // скидка 15 % с 1 000,01 ₸ = 850,0085 → 850,01
+        assert_eq!(line_subtotal(100_001, 1_000, 15), 85_001);
+    }
+
+    #[test]
+    fn доставка_с_сайта_по_тарифу() {
+        assert_eq!(site_delivery("pickup", Some("Алматы")), 0);
+        assert_eq!(site_delivery("courier", Some("Астана")), 120_000);
+        assert_eq!(site_delivery("courier", None), 120_000);
+        assert_eq!(site_delivery("courier", Some("Алматы")), 250_000);
+        assert_eq!(site_delivery("cdek", Some("Астана")), 250_000);
     }
 }

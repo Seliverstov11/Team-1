@@ -154,9 +154,29 @@ async fn list_clients(staff: Staff, State(db): State<Db>, Query(q): Query<Client
     Ok(Json(collect::<ClientRow>(rows).await?.into_iter().map(ClientView::from).collect()))
 }
 
+/// Часть номера для поиска. В базе хранятся последние 10 цифр, поэтому
+/// код страны отрезаем: «+7 701» ищется как «701» (ревью PR #13).
 fn phone_norm_partial(s: &str) -> Option<String> {
-    let d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
-    (d.len() >= 4).then(|| format!("%{}%", &d[d.len().saturating_sub(10)..]))
+    let s = s.trim();
+    let mut d: String = s.chars().filter(|c| c.is_ascii_digit()).collect();
+    let with_country = s.starts_with('+') || d.len() == 11 || (s.starts_with('8') && d.len() > 1);
+    if with_country && (d.starts_with('7') || d.starts_with('8')) && d.len() > 1 {
+        d.remove(0);
+    }
+    (d.len() >= 3).then(|| format!("%{}%", &d[d.len().saturating_sub(10)..]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::phone_norm_partial;
+
+    #[test]
+    fn часть_номера_без_кода_страны() {
+        assert_eq!(phone_norm_partial("+7 701").as_deref(), Some("%701%"));
+        assert_eq!(phone_norm_partial("87019990001").as_deref(), Some("%7019990001%"));
+        assert_eq!(phone_norm_partial("7019990001").as_deref(), Some("%7019990001%"));
+        assert_eq!(phone_norm_partial("Айгерим"), None);
+    }
 }
 
 #[derive(Serialize)]

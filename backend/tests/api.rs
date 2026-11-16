@@ -383,6 +383,56 @@ async fn после_пяти_неверных_паролей_пауза() {
 }
 
 #[tokio::test]
+async fn правка_оплаченного_заказа_пересчитывает_оплату() {
+    let t = setup().await;
+    let pid = t.product().await;
+    let o = t.guest_order(&pid, "2").await;
+    let (id, item) = (o["id"].as_str().unwrap(), o["items"][0]["id"].as_str().unwrap());
+    let dana = t.login("dana").await;
+    let (s, _) = t.post(&format!("/api/orders/{id}/payment"), Some(&dana), json!({ "payment_status": "paid", "payment_method": "cash" })).await;
+    assert_eq!(s, StatusCode::OK);
+
+    // Больше товара — долг: «частично», а не «оплачен».
+    let (s, v) = t.patch(&format!("/api/orders/{id}/items/{item}"), Some(&dana), json!({ "quantity": "3" })).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["payment_status"], "partial");
+    assert_ne!(v["due"], "0.00");
+
+    // Меньше товара — переплата видна.
+    let (_, v) = t.patch(&format!("/api/orders/{id}/items/{item}"), Some(&dana), json!({ "quantity": "1" })).await;
+    assert_eq!(v["payment_status"], "paid");
+    assert!(v["overpaid"].is_string(), "переплата в ответе: {v}");
+    assert!(v["events"].as_array().unwrap().iter().any(|e| e["message"].as_str().unwrap().starts_with("Переплата")));
+}
+
+#[tokio::test]
+async fn доставку_с_сайта_считает_сервер() {
+    let t = setup().await;
+    let pid = t.product().await;
+    let (s, o) = t
+        .post("/api/orders", None, json!({ "client_name": "Гость", "client_phone": "+77015550000", "delivery_method": "courier",
+            "city": "Алматы", "delivery_address": "ул. Абая, 1", "delivery": "0", "items": [{ "product_id": pid, "quantity": "1" }] }))
+        .await;
+    assert_eq!(s, StatusCode::OK, "{o}");
+    assert_eq!(o["delivery"], "2500.00", "гость не может прислать доставку 0");
+    let (_, o) = t
+        .post("/api/orders", None, json!({ "client_name": "Гость", "client_phone": "+77015550000", "delivery_method": "pickup",
+            "items": [{ "product_id": pid, "quantity": "1" }] }))
+        .await;
+    assert_eq!(o["delivery"], "0.00");
+}
+
+#[tokio::test]
+async fn сборка_отдаёт_счётчики_не_перекрывая_итог() {
+    let t = setup().await;
+    let sklad = t.login("sklad").await;
+    let (_, q) = t.get("/api/warehouse/assembly", Some(&sklad)).await;
+    let first = &q.as_array().unwrap()[0];
+    assert!(first["total"].is_string(), "total — деньги, строкой: {first}");
+    assert!(first["items_count"].is_number() && first["picked_count"].is_number());
+}
+
+#[tokio::test]
 async fn поиск_без_учёта_регистра_по_словам_и_категории() {
     let t = setup().await;
     let (_, big) = t.get("/api/catalog/products?search=Шоколад&limit=500", None).await;
@@ -398,4 +448,18 @@ async fn поиск_без_учёта_регистра_по_словам_и_ка
     let sklad = t.login("sklad").await;
     let (_, st) = t.get("/api/warehouse/stock?search=склад%20а", Some(&sklad)).await;
     assert!(!st.as_array().unwrap().is_empty(), "поиск по полке на складе");
+}
+
+#[tokio::test]
+async fn у_отменённого_после_возврата_нет_долга() {
+    let t = setup().await;
+    let pid = t.product().await;
+    let o = t.guest_order(&pid, "1").await;
+    let id = o["id"].as_str().unwrap();
+    let dana = t.login("dana").await;
+    t.post(&format!("/api/orders/{id}/payment"), Some(&dana), json!({ "payment_status": "paid", "payment_method": "cash" })).await;
+    t.post(&format!("/api/orders/{id}/payment"), Some(&dana), json!({ "payment_status": "refunded" })).await;
+    let (s, v) = t.patch(&format!("/api/orders/{id}"), Some(&dana), json!({ "status": "cancelled" })).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(v["due"], "0.00");
 }

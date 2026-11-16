@@ -255,6 +255,9 @@ pub struct OrderView {
     pub paid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
+    /// Переплата после правки состава или доставки — вернуть разницу клиенту.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub overpaid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payment_method: Option<String>,
     /// unpaid | partial | paid | refunded
@@ -279,6 +282,11 @@ pub struct OrderView {
 
 impl From<OrderRow> for OrderView {
     fn from(r: OrderRow) -> Self {
+        // У отменённого заказа и после возврата долга нет.
+        let closed = r.status == "cancelled" || r.payment_status == "refunded";
+        let due = if closed { 0 } else { (r.total_tiyn - r.paid_tiyn).max(0) };
+        let overpaid = (r.paid_tiyn > r.total_tiyn && r.payment_status != "refunded")
+            .then(|| tiyn_to_string(r.paid_tiyn - r.total_tiyn));
         Self {
             id: r.id,
             order_no: r.order_no,
@@ -290,7 +298,8 @@ impl From<OrderRow> for OrderView {
             delivery: tiyn_to_string(r.delivery_tiyn),
             total: tiyn_to_string(r.total_tiyn),
             paid: Some(tiyn_to_string(r.paid_tiyn)),
-            due: Some(tiyn_to_string((r.total_tiyn - r.paid_tiyn).max(0))),
+            due: Some(tiyn_to_string(due)),
+            overpaid,
             payment_method: Some(r.payment_method),
             payment_status: Some(r.payment_status),
             channel: r.channel,
@@ -316,6 +325,7 @@ impl OrderView {
     pub fn without_payment(mut self) -> Self {
         self.paid = None;
         self.due = None;
+        self.overpaid = None;
         self.payment_method = None;
         self.payment_status = None;
         self

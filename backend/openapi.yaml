@@ -745,9 +745,10 @@ components:
         delivery: { $ref: "#/components/schemas/Money" }
         total: { $ref: "#/components/schemas/Money" }
         paid: { allOf: [{ $ref: "#/components/schemas/Money" }], description: Нет у кладовщика }
-        due: { allOf: [{ $ref: "#/components/schemas/Money" }], description: К оплате. Нет у кладовщика }
+        due: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "К оплате. У отменённого и после возврата — 0. Нет у кладовщика" }
+        overpaid: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "Переплата после правки состава или доставки — вернуть разницу. Есть только при переплате, нет у кладовщика" }
         payment_method: { allOf: [{ $ref: "#/components/schemas/PaymentMethod" }], description: Нет у кладовщика }
-        payment_status: { allOf: [{ $ref: "#/components/schemas/PaymentStatus" }], description: Нет у кладовщика }
+        payment_status: { allOf: [{ $ref: "#/components/schemas/PaymentStatus" }], description: "Нет у кладовщика. После правки состава или доставки пересчитывается по сумме: оплачено не меньше итога — paid, меньше — partial" }
         channel: { $ref: "#/components/schemas/Channel" }
         city: { type: string, nullable: true }
         delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
@@ -816,7 +817,7 @@ components:
         city: { type: string, example: Астана }
         delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
         delivery_address: { type: string, description: Обязателен для доставки с сайта (ФТ-О-02) }
-        delivery: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "Астана — 1200, межгород — 2500" }
+        delivery: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "Только сотрудник. Для заказа с сайта сервер считает сам: самовывоз — 0, курьер по Астане — 1200, остальное — 2500" }
         payment_method: { $ref: "#/components/schemas/PaymentMethod" }
         note: { type: string }
         is_urgent: { type: boolean, description: Только сотрудник }
@@ -905,8 +906,8 @@ components:
         - type: object
           properties:
             items: { type: array, items: { $ref: "#/components/schemas/OrderItem" }, description: По полкам }
-            picked: { type: integer }
-            total: { type: integer }
+            picked_count: { type: integer, description: Сколько позиций собрано }
+            items_count: { type: integer, description: Сколько позиций всего }
 
     Client:
       type: object
