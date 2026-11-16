@@ -32,6 +32,12 @@
     <p x-show="error" x-cloak role="alert" class="mt-4 rounded-control bg-error-soft px-4 py-3 text-[0.75rem] text-error" x-text="error"></p>
     <button type="submit" class="btn-primary mt-6 w-full" :disabled="busy || lockLeft > 0"
             x-text="lockLeft ? `Повторите через ${Math.floor(lockLeft / 60)}:${String(lockLeft % 60).padStart(2, '0')}` : busy ? 'Входим…' : 'Войти'">Войти</button>
+    <!-- Установка на рабочий стол — видна, когда браузер её предлагает -->
+    <div x-show="$store.pwa.canInstall" x-cloak class="mt-5 flex items-center gap-3 rounded-control border border-brand-gold/50 bg-brand-gold-soft/50 px-4 py-3">
+      <img src="/crm/icons/icon-192.png" alt="" class="size-9 rounded-lg" />
+      <p class="min-w-0 flex-1 text-[0.6875rem] leading-snug">Откройте CRM как программу — значком на рабочем столе, в своём окне</p>
+      <button type="button" class="btn-outline btn-s shrink-0 px-3" @click="$store.pwa.install()">Установить</button>
+    </div>
     <p class="mt-4 text-[0.6875rem] leading-snug text-ink-muted">Логин и пароль выдаёт владелец. Забыли пароль — попросите владельца сменить его в разделе сотрудников.</p>
   </form>
 </main>

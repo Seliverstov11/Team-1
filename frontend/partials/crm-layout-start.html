@@ -84,6 +84,12 @@
             :title="$store.crm.error ? 'Backend недоступен' : 'Сайт и CRM работают с одной базой — backend API'">
         <span class="size-1.5 rounded-full bg-current"></span><span x-text="$store.crm.error ? 'Нет связи с backend' : 'Backend подключён'"></span>
       </span>
+      <button type="button" x-show="$store.pwa.canInstall" x-cloak @click="$store.pwa.install()"
+              class="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-control border border-brand-gold bg-brand-gold-soft px-3 text-[0.75rem] transition hover:bg-brand-gold hover:text-surface"
+              title="Значок на рабочем столе, отдельное окно без адресной строки">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/></svg>
+        <span class="hidden xl:inline">Установить приложение</span><span class="xl:hidden">Установить</span>
+      </button>
       <a href="/" target="_blank" rel="noopener" class="shrink-0 whitespace-nowrap text-[0.75rem] text-ink-muted hover:text-brand-gold"><span class="hidden sm:inline">Открыть сайт </span>↗<span class="sr-only sm:hidden">Открыть сайт</span></a>
       <span class="hidden shrink-0 whitespace-nowrap text-[0.75rem] text-ink-muted first-letter:uppercase xl:inline" x-text="new Date().toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })"></span>
     </header>

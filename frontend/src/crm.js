@@ -18,6 +18,28 @@ import { fmt, formatPhone, isPhone, persisted, phoneDigits, save } from './util.
 const params = new URLSearchParams(location.search)
 const LOCK_KEY = 'bakeloom.crm.lock'
 
+// ---------------------------------------------------------------- приложение на рабочем столе (PWA)
+// Service worker держит оболочку CRM (public/crm/sw.js). Данные всегда идут с сервера.
+// Работает на https и на localhost; по адресу из локальной сети (http://192.168…) браузер установку не предложит.
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('/crm/sw.js', { scope: '/crm/' }).then(reg => {
+    // CRM может быть открыта весь день — раз в час проверяем, не выложили ли новую версию
+    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000)
+  }).catch(e => console.warn('Service worker не зарегистрирован:', e))
+}
+// Браузер готов предложить установку — событие может прийти раньше Alpine, поэтому ловим его сразу
+let installEvent = null
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault()
+  installEvent = e
+  if (window.Alpine) Alpine.store('pwa').available = true
+})
+window.addEventListener('appinstalled', () => {
+  installEvent = null
+  if (window.Alpine) Object.assign(Alpine.store('pwa'), { available: false, installed: true })
+})
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
+
 // Роли сервера: admin — владелец, manager — менеджер, warehouse — кладовщик
 const ROLES = {
   admin: { title: 'Владелец магазина', app: 'CRM · владелец' },
@@ -64,6 +86,20 @@ const byShelf = items => [...items].sort((a, b) => (a.storage_location ?? '').lo
 
 document.addEventListener('alpine:init', () => {
   Alpine.store('fmt', { ...fmt, phone: formatPhone, money: formatTiyn, qty: formatQty, tiyn })
+
+  // «Установить приложение»: кнопка видна, пока браузер готов установить и CRM открыта не из значка
+  Alpine.store('pwa', {
+    available: Boolean(installEvent),
+    installed: standalone(),
+    get canInstall() { return this.available && !this.installed },
+    async install() {
+      if (!installEvent) return
+      installEvent.prompt()
+      const { outcome } = await installEvent.userChoice
+      if (outcome === 'accepted') { this.installed = true; installEvent = null }
+      this.available = Boolean(installEvent)
+    },
+  })
 
   Alpine.store('crm', {
     page: document.body.dataset.page ?? '',
