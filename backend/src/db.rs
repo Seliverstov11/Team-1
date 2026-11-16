@@ -2,11 +2,20 @@ use std::{sync::Arc, time::Duration};
 
 /// Обёртка над базой: каждое соединение ждёт до 5 секунд, если файл занят
 /// другой записью, вместо мгновенной ошибки «database is locked».
-pub struct Database(libsql::Database);
+/// Рядом — счётчик неудачных входов: он живёт столько же, сколько сервер,
+/// и у каждой тестовой базы свой.
+pub struct Database {
+    inner: libsql::Database,
+    pub logins: crate::auth::LoginLimiter,
+}
 
 impl Database {
+    fn new(inner: libsql::Database) -> Self {
+        Self { inner, logins: Default::default() }
+    }
+
     pub fn connect(&self) -> libsql::Result<libsql::Connection> {
-        let conn = self.0.connect()?;
+        let conn = self.inner.connect()?;
         // Удалённая Turso сама разруливает конкурентность, там настройки нет.
         let _ = conn.busy_timeout(Duration::from_secs(5));
         Ok(conn)
@@ -28,7 +37,7 @@ pub async fn connect_local(path: &str) -> anyhow::Result<Db> {
     let db = libsql::Builder::new_local(path).build().await?;
     enable_wal(&db).await?;
     migrate(&db).await?;
-    Ok(Arc::new(Database(db)))
+    Ok(Arc::new(Database::new(db)))
 }
 
 /// В режиме WAL чтение не блокирует запись: CRM и сайт работают с базой
@@ -58,7 +67,7 @@ async fn connect_with(path: &str) -> anyhow::Result<Db> {
     };
 
     migrate(&db).await?;
-    Ok(Arc::new(Database(db)))
+    Ok(Arc::new(Database::new(db)))
 }
 
 const MIGRATIONS: &[(&str, &str)] = &[

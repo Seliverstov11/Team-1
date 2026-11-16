@@ -59,6 +59,7 @@ paths:
     post:
       tags: [auth]
       summary: Вход сотрудника по логину и паролю
+      description: После 5 неверных паролей подряд по одному логину — пауза 5 минут, ответ 429 даже на верный пароль.
       security: []
       requestBody:
         required: true
@@ -73,6 +74,7 @@ paths:
       responses:
         "200": { description: Вход выполнен, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
   /api/auth/client/login:
     post:
       tags: [auth]
@@ -91,6 +93,7 @@ paths:
       responses:
         "200": { description: Вход выполнен, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
   /api/auth/client/register:
     post:
       tags: [auth]
@@ -620,6 +623,7 @@ components:
     Unauthorized: { description: Нужен вход или сессия истекла, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
     NotFound: { description: Не найдено, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
     Conflict: { description: Действие противоречит состоянию, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    TooManyRequests: { description: Слишком много неверных попыток входа, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   schemas:
     Error:

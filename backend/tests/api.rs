@@ -366,3 +366,18 @@ async fn сотрудники_и_последний_владелец() {
     let (s, _) = t.patch("/api/employees/e-owner", Some(&owner), json!({ "role": "manager" })).await;
     assert_eq!(s, StatusCode::CONFLICT, "без владельца система остаться не должна");
 }
+
+// ─── Исправления по ревью PR #13 и задачам #35–#37 ──────────────────────────
+
+#[tokio::test]
+async fn после_пяти_неверных_паролей_пауза() {
+    let t = setup().await;
+    for _ in 0..5 {
+        let (s, _) = t.post("/api/auth/login", None, json!({ "login": "aliya", "password": "неверный" })).await;
+        assert_eq!(s, StatusCode::UNAUTHORIZED);
+    }
+    let (s, v) = t.post("/api/auth/login", None, json!({ "login": "aliya", "password": PW })).await;
+    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "в паузе не пускает и с верным паролем: {v}");
+    // Другой логин не страдает.
+    assert!(!t.login("dana").await.is_empty());
+}

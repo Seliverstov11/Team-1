@@ -21,6 +21,9 @@ pub enum ApiError {
     /// удаление товара с историей, занятый логин.
     #[error("{0}")]
     Conflict(String),
+    /// Слишком много неудачных попыток входа подряд.
+    #[error("{0}")]
+    TooManyRequests(String),
     #[error(transparent)]
     Db(#[from] libsql::Error),
     #[error(transparent)]
@@ -35,6 +38,7 @@ impl IntoResponse for ApiError {
             ApiError::Unauthorized(m) => (StatusCode::UNAUTHORIZED, m.clone()),
             ApiError::Forbidden(m) => (StatusCode::FORBIDDEN, m.clone()),
             ApiError::Conflict(m) => (StatusCode::CONFLICT, m.clone()),
+            ApiError::TooManyRequests(m) => (StatusCode::TOO_MANY_REQUESTS, m.clone()),
             ApiError::Db(e) => {
                 tracing::error!("ошибка БД: {e}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "ошибка базы данных".into())

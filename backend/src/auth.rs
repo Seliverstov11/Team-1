@@ -246,6 +246,51 @@ impl FromRequestParts<Db> for Customer {
 
 // ─── Пароли и токены ─────────────────────────────────────────────────────────
 
+// ─── Ограничение попыток входа ───────────────────────────────────────────────
+// Пауза после серии неверных паролей по одному логину или телефону: перебор
+// прямо в API без неё ничем не ограничен (ревью PR #13, задача #35).
+// Счётчик в памяти процесса — для одного сервера этого достаточно.
+
+const MAX_FAILS: u32 = 5;
+const LOCK: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+/// Неудачи старше этого срока забываются: опечатки раз в день не копятся.
+const FORGET: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+
+#[derive(Default)]
+pub struct LoginLimiter(std::sync::Mutex<std::collections::HashMap<String, (u32, std::time::Instant)>>);
+
+impl LoginLimiter {
+    fn check(&self, key: &str) -> ApiResult<()> {
+        let map = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((fails, last)) = map.get(key)
+            && *fails >= MAX_FAILS
+        {
+            let left = LOCK.saturating_sub(last.elapsed());
+            if !left.is_zero() {
+                let minutes = left.as_secs().div_ceil(60).max(1);
+                return Err(ApiError::TooManyRequests(format!(
+                    "слишком много неверных попыток — попробуйте через {minutes} мин."
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn fail(&self, key: &str) {
+        let mut map = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let entry = map.entry(key.to_string()).or_insert((0, std::time::Instant::now()));
+        if entry.1.elapsed() > FORGET || (entry.0 >= MAX_FAILS && entry.1.elapsed() > LOCK) {
+            entry.0 = 0;
+        }
+        entry.0 += 1;
+        entry.1 = std::time::Instant::now();
+    }
+
+    fn success(&self, key: &str) {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).remove(key);
+    }
+}
+
 pub const MIN_PASSWORD: usize = 6;
 
 pub fn check_password_rules(pw: &str) -> ApiResult<()> {
@@ -385,6 +430,8 @@ pub struct UserView {
 const WRONG: &str = "неверный логин или пароль";
 
 async fn staff_login(State(db): State<Db>, Json(b): Json<StaffLogin>) -> ApiResult<Json<Session>> {
+    let key = format!("staff:{}", b.login.trim().to_lowercase());
+    db.logins.check(&key)?;
     let conn = db.connect()?;
     let (id, name, role, hash, active) = {
         let mut rows = conn
@@ -394,6 +441,7 @@ async fn staff_login(State(db): State<Db>, Json(b): Json<StaffLogin>) -> ApiResu
             )
             .await?;
         let Some(r) = rows.next().await? else {
+            db.logins.fail(&key);
             return Err(ApiError::Unauthorized(WRONG.into()));
         };
         (r.get::<String>(0)?, r.get::<String>(1)?, r.get::<String>(2)?, r.get::<Option<String>>(3)?, r.get::<i64>(4)?)
@@ -403,8 +451,10 @@ async fn staff_login(State(db): State<Db>, Json(b): Json<StaffLogin>) -> ApiResu
         None => false,
     };
     if !ok || active != 1 {
+        db.logins.fail(&key);
         return Err(ApiError::Unauthorized(WRONG.into()));
     }
+    db.logins.success(&key);
     conn.execute(
         "UPDATE employees SET last_login_at = ?1 WHERE id = ?2",
         libsql::params![now(), id.clone()],
@@ -416,6 +466,8 @@ async fn staff_login(State(db): State<Db>, Json(b): Json<StaffLogin>) -> ApiResu
 
 async fn client_login(State(db): State<Db>, Json(b): Json<ClientLogin>) -> ApiResult<Json<Session>> {
     let norm = phone_norm(&b.phone).ok_or_else(|| bad("телефон указан неверно"))?;
+    let key = format!("client:{norm}");
+    db.logins.check(&key)?;
     let conn = db.connect()?;
     let (id, name, hash) = {
         let mut rows = conn
@@ -426,13 +478,16 @@ async fn client_login(State(db): State<Db>, Json(b): Json<ClientLogin>) -> ApiRe
             )
             .await?;
         let Some(r) = rows.next().await? else {
+            db.logins.fail(&key);
             return Err(ApiError::Unauthorized("неверный телефон или пароль".into()));
         };
         (r.get::<String>(0)?, r.get::<String>(1)?, r.get::<String>(2)?)
     };
     if !verify_password(&hash, &b.password).await {
+        db.logins.fail(&key);
         return Err(ApiError::Unauthorized("неверный телефон или пароль".into()));
     }
+    db.logins.success(&key);
     conn.execute(
         "UPDATE clients SET last_login_at = ?1 WHERE id = ?2",
         libsql::params![now(), id.clone()],
