@@ -156,6 +156,9 @@ async fn update_category(
         ],
     )
     .await?;
+    if b.name.is_some() {
+        crate::db::refresh_search(&conn, "p.category_id = ?1", id.clone().into()).await?;
+    }
     Ok(Json(get_category(&conn, &id).await?))
 }
 
@@ -274,7 +277,9 @@ async fn list_products(
     let conn = db.connect()?;
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
     let offset = q.offset.unwrap_or(0).max(0);
-    let search = q.search.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(|s| format!("%{s}%"));
+    // Каждое слово запроса должно найтись в строке поиска: название, фасовка,
+    // артикул, категория — без учёта регистра в кириллице (#36).
+    let terms = crate::db::search_terms(q.search.as_deref().unwrap_or(""));
     let in_stock = q.in_stock.filter(|v| *v).map(|_| 1i64);
     let archived = actor.staff().is_some_and(|s| s.is(Role::Admin)) && q.include_archived == Some(true);
     let order = match q.sort.as_deref().unwrap_or("name") {
@@ -285,31 +290,30 @@ async fn list_products(
         other => return Err(bad(format!("сортировка: name, price_asc, price_desc или new, а не «{other}»"))),
     };
 
+    let words: String = (0..terms.len())
+        .map(|i| format!(" AND instr(IFNULL(search_text, ''), ?{}) > 0", i + 7))
+        .collect();
     let sql = format!(
         "SELECT {PRODUCT_COLS}
          FROM products
-         WHERE (?7 = 1 OR is_archived = 0)
+         WHERE (?6 = 1 OR is_archived = 0)
            AND (?1 IS NULL OR category_id = ?1)
-           AND (?2 IS NULL OR name LIKE ?2 OR IFNULL(sku,'') LIKE ?2)
-           AND (?3 IS NULL OR stock_milli - reserved_milli > 0)
-           AND (?6 IS NULL OR group_id = ?6)
+           AND (?2 IS NULL OR stock_milli - reserved_milli > 0)
+           AND (?5 IS NULL OR group_id = ?5){words}
          ORDER BY {order}
-         LIMIT ?4 OFFSET ?5"
+         LIMIT ?3 OFFSET ?4"
     );
-    let rows = conn
-        .query(
-            &sql,
-            libsql::params![
-                q.category_id.clone(),
-                search,
-                in_stock,
-                limit,
-                offset,
-                q.group_id.clone(),
-                archived as i64
-            ],
-        )
-        .await?;
+    let opt = |v: Option<String>| v.map(libsql::Value::from).unwrap_or(libsql::Value::Null);
+    let mut params: Vec<libsql::Value> = vec![
+        opt(q.category_id.clone()),
+        in_stock.map(libsql::Value::from).unwrap_or(libsql::Value::Null),
+        limit.into(),
+        offset.into(),
+        opt(q.group_id.clone()),
+        (archived as i64).into(),
+    ];
+    params.extend(terms.into_iter().map(libsql::Value::from));
+    let rows = conn.query(&sql, params).await?;
     let products: Vec<ProductRow> = collect(rows).await?;
     let client = price_client(&actor, q.client_id.as_ref());
     Ok(Json(to_views(&conn, products, client.as_deref()).await?))
@@ -478,6 +482,7 @@ async fn create_product(
     )
     .await?;
     write_attributes(&tx, &id, &attrs).await?;
+    crate::db::refresh_search(&tx, "p.id = ?1", id.clone().into()).await?;
     if initial > 0 {
         tx.execute(
             "INSERT INTO stock_movements (id, product_id, movement_type, quantity_milli, reason,
@@ -568,6 +573,7 @@ async fn update_product(
     if let Some(a) = &attrs {
         write_attributes(&tx, &id, a).await?;
     }
+    crate::db::refresh_search(&tx, "p.id = ?1", id.clone().into()).await?;
     tx.commit().await?;
 
     let row = load_product(&conn, &id).await?;

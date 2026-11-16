@@ -54,24 +54,34 @@ async fn list_stock(staff: Staff, State(db): State<Db>, Query(q): Query<StockQue
     {
         return Err(bad("status: in_stock, low или out"));
     }
-    let like = q.search.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(|s| format!("%{s}%"));
+    // Слова ищутся в названии, фасовке, артикуле и полке без учёта регистра
+    // в кириллице (#36). Позиций на складе немного — фильтруем здесь, а не в SQLite.
+    let terms = crate::db::search_terms(q.search.as_deref().unwrap_or(""));
     let conn = db.connect()?;
     let rows = conn
         .query(
             &format!(
                 "SELECT {STOCK_COLS} FROM products
-                 WHERE is_archived = 0
-                   AND (?1 IS NULL OR name LIKE ?1 OR IFNULL(sku, '') LIKE ?1 OR IFNULL(storage_location, '') LIKE ?1)
-                   AND (?2 IS NULL OR category_id = ?2)
+                 WHERE is_archived = 0 AND (?1 IS NULL OR category_id = ?1)
                  ORDER BY IFNULL(storage_location, 'я'), name"
             ),
-            libsql::params![like, q.category_id.clone()],
+            libsql::params![q.category_id.clone()],
         )
         .await?;
     let items: Vec<StockRow> = collect(rows).await?;
     Ok(Json(
         items
             .into_iter()
+            .filter(|r| {
+                let hay = crate::db::normalize_search(&format!(
+                    "{} {} {} {}",
+                    r.name,
+                    r.variant_name.as_deref().unwrap_or(""),
+                    r.sku.as_deref().unwrap_or(""),
+                    r.storage_location.as_deref().unwrap_or("")
+                ));
+                terms.iter().all(|w| hay.contains(w.as_str()))
+            })
             .map(StockView::from)
             .filter(|v| q.status.as_deref().is_none_or(|s| v.status == s))
             .collect(),

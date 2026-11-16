@@ -87,6 +87,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ),
     ("006_crm_auth", include_str!("../migrations/006_crm_auth.sql")),
     ("007_seed_sample", include_str!("../migrations/007_seed_sample.sql")),
+    ("008_search_text", include_str!("../migrations/008_search_text.sql")),
 ];
 
 async fn migrate(db: &libsql::Database) -> anyhow::Result<()> {
@@ -121,5 +122,92 @@ async fn migrate(db: &libsql::Database) -> anyhow::Result<()> {
         tracing::info!("миграция применена: {name}");
     }
 
+    // Строки поиска для товаров, у которых их ещё нет: после миграции 008
+    // и после перезаливки демо-данных.
+    let n = refresh_search(&conn, "p.search_text IS NULL", libsql::Value::Null).await?;
+    if n > 0 {
+        tracing::info!("строки поиска собраны для товаров: {n}");
+    }
     Ok(())
+}
+
+/// Нижний регистр по Unicode, «ё» → «е», всё кроме букв и цифр — пробел.
+pub fn normalize_search(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.to_lowercase().chars() {
+        let ch = if ch == 'ё' { 'е' } else { ch };
+        if ch.is_alphanumeric() {
+            out.push(ch);
+        } else if !out.ends_with(' ') {
+            out.push(' ');
+        }
+    }
+    out.trim().to_string()
+}
+
+/// Пересобирает строку поиска у товаров, подходящих под условие
+/// (`p.id = ?1`, `p.category_id = ?1` или `p.search_text IS NULL`).
+pub async fn refresh_search(conn: &libsql::Connection, condition: &str, param: libsql::Value) -> anyhow::Result<usize> {
+    let sql = format!(
+        "SELECT p.id, p.name, IFNULL(p.variant_name, ''), IFNULL(p.sku, ''), IFNULL(c.name, '')
+         FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE {condition}"
+    );
+    let params: Vec<libsql::Value> = if condition.contains("?1") { vec![param] } else { vec![] };
+    let mut rows = conn.query(&sql, params).await?;
+    let mut updates = Vec::new();
+    while let Some(r) = rows.next().await? {
+        let id: String = r.get(0)?;
+        let text = normalize_search(&format!(
+            "{} {} {} {}",
+            r.get::<String>(1)?,
+            r.get::<String>(2)?,
+            r.get::<String>(3)?,
+            r.get::<String>(4)?
+        ));
+        updates.push((id, text));
+    }
+    drop(rows);
+    for (id, text) in &updates {
+        conn.execute(
+            "UPDATE products SET search_text = ?1 WHERE id = ?2",
+            libsql::params![text.clone(), id.clone()],
+        )
+        .await?;
+    }
+    Ok(updates.len())
+}
+
+/// Слова запроса для поиска: нормализованы, у длинных отрезано окончание,
+/// чтобы «коробка» находила «коробки», а «торта» — «тортов».
+pub fn search_terms(q: &str) -> Vec<String> {
+    normalize_search(q)
+        .split_whitespace()
+        .map(|w| {
+            let chars: Vec<char> = w.chars().collect();
+            let cut = match chars.len() {
+                n if n >= 6 && chars.iter().all(|c| c.is_alphabetic()) => 2,
+                5 if chars.iter().all(|c| c.is_alphabetic()) => 1,
+                _ => 0,
+            };
+            chars[..chars.len() - cut].iter().collect()
+        })
+        .take(6)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_search, search_terms};
+
+    #[test]
+    fn нормализация_для_поиска() {
+        assert_eq!(normalize_search("Шоколад тёмный 54%, CHO-D54"), "шоколад темный 54 cho d54");
+    }
+
+    #[test]
+    fn слова_запроса() {
+        assert_eq!(search_terms("Коробка торт"), vec!["короб".to_string(), "торт".into()]);
+        assert_eq!(search_terms("шоколад"), vec!["шокол".to_string()]);
+        assert_eq!(search_terms("CHO-D54-500"), vec!["cho".to_string(), "d54".into(), "500".into()]);
+    }
 }

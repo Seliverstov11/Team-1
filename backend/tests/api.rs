@@ -381,3 +381,21 @@ async fn после_пяти_неверных_паролей_пауза() {
     // Другой логин не страдает.
     assert!(!t.login("dana").await.is_empty());
 }
+
+#[tokio::test]
+async fn поиск_без_учёта_регистра_по_словам_и_категории() {
+    let t = setup().await;
+    let (_, big) = t.get("/api/catalog/products?search=Шоколад&limit=500", None).await;
+    let (_, small) = t.get("/api/catalog/products?search=шоколад&limit=500", None).await;
+    assert!(!big.as_array().unwrap().is_empty());
+    assert_eq!(big.as_array().unwrap().len(), small.as_array().unwrap().len(), "регистр не важен");
+    let (_, words) = t.get("/api/catalog/products?search=коробка%20торт&limit=500", None).await;
+    assert!(!words.as_array().unwrap().is_empty(), "слова не обязаны идти подряд");
+    let cat = t.one("SELECT id FROM categories WHERE name LIKE 'Коробки для торта%' LIMIT 1").await;
+    let in_cat = t.num(&format!("SELECT COUNT(*) FROM products WHERE category_id = '{cat}'")).await;
+    let (_, torte) = t.get("/api/catalog/products?search=торт&limit=500", None).await;
+    assert!(torte.as_array().unwrap().len() as i64 >= in_cat, "название категории участвует в поиске");
+    let sklad = t.login("sklad").await;
+    let (_, st) = t.get("/api/warehouse/stock?search=склад%20а", Some(&sklad)).await;
+    assert!(!st.as_array().unwrap().is_empty(), "поиск по полке на складе");
+}
