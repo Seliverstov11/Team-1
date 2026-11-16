@@ -1,0 +1,29 @@
+<!-- Одна карточка — одна группа фасовок (group_id). Переключатель меняет цену, остаток и артикул -->
+<article x-data="productCard(card)" class="flex flex-col rounded-card border border-transparent bg-surface p-2.5 transition hover:border-brand-gold-light hover:shadow-lift">
+  <div class="relative aspect-[227/200] overflow-hidden rounded-xl">
+    <a :href="`/product.html?id=${p.id}`" class="absolute inset-0" :aria-label="p.name"><!-- @include product-image.html --></a>
+    <div class="absolute right-2.5 top-2.5"><!-- @include fav-button.html --></div>
+    <span x-show="bl.hasWholesale(p)" class="absolute left-2.5 top-2.5 rounded-full bg-surface/90 px-2 py-0.5 text-[0.5625rem] tracking-wider text-brand-dark">опт</span>
+  </div>
+  <div class="flex flex-1 flex-col px-1 pb-1 pt-3 text-center sm:px-2 sm:pb-2 sm:pt-4">
+    <p class="caps text-[0.5625rem] tracking-[0.18em] text-brand-gold" x-text="$store.shop.category(p.category_id).name"></p>
+    <h3 class="mt-1.5 min-h-[2.6rem] text-[0.8125rem] leading-snug [overflow-wrap:anywhere] sm:text-sm">
+      <a :href="`/product.html?id=${p.id}`" class="hover:text-brand-gold" x-text="card.name"></a>
+    </h3>
+    <div x-show="card.multi" class="mt-2 flex flex-wrap justify-center gap-1" role="group" aria-label="Фасовка">
+      <template x-for="v in card.variants" :key="v.id">
+        <button type="button" @click="pick(v)" :aria-pressed="v.id === p.id"
+                class="rounded-full border px-2 py-0.5 text-[0.625rem] transition"
+                :class="v.id === p.id ? 'border-brand-dark bg-brand-dark text-brand-light' : bl.inStock(v) ? 'border-line hover:border-brand-gold' : 'border-line text-ink-placeholder line-through'"
+                x-text="v.variant_name"></button>
+      </template>
+    </div>
+    <p class="mt-1.5 text-[0.625rem] tracking-wider text-ink-muted" x-text="`Арт. ${p.sku}`"></p>
+    <p class="mt-2 font-heading text-xl font-semibold leading-none sm:text-2xl" x-text="$store.fmt.money(bl.retail(p))"></p>
+    <p x-show="bl.hasWholesale(p)" class="mt-1 text-[0.6875rem] text-brand-dark"
+       x-text="`от ${p.wholesale_min_qty} ${p.unit} — ${$store.fmt.money(bl.wholesale(p))}`"></p>
+    <p class="mt-2 text-xs font-light" :class="bl.inStock(p) ? 'text-success' : 'text-error'"
+       x-text="bl.inStock(p) ? `В наличии: ${$store.fmt.qty(p.available_qty)} ${p.unit}` : 'Нет в наличии'"></p>
+    <div class="mt-auto pt-4"><!-- @include buy-box.html --></div>
+  </div>
+</article>

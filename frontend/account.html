@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include head.html -->
+  <title>Профиль — Bakeloom</title>
+</head>
+<body data-page="account">
+<!-- @include layout-start.html -->
+
+<main id="main" x-data="accountPage" class="vt-content flex flex-col gap-6">
+  <nav class="text-xs font-light text-ink-muted" aria-label="Хлебные крошки">
+    <a href="/" class="hover:text-brand-gold">Главная</a> <span class="mx-1.5">/</span> <span class="text-ink">Профиль</span>
+  </nav>
+
+  <!-- ===================== Вход ===================== -->
+  <template x-if="!$store.account.me">
+    <section class="grid grid-cols-1 overflow-hidden rounded-panel bg-surface md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div class="flex flex-col justify-center bg-linear-to-br from-brand-dark-raised to-brand-dark-hover px-6 py-10 text-brand-light sm:px-12 sm:py-14">
+        <p class="eyebrow">Личный кабинет</p>
+        <h1 class="mt-5 text-balance font-heading text-[clamp(2rem,4vw,2.75rem)] font-light leading-[1.1]">Ваши заказы и&nbsp;данные в&nbsp;одном месте</h1>
+        <ul class="mt-8 space-y-3 text-sm font-light text-on-dark-subtle">
+          <li class="flex gap-3"><span class="text-brand-gold">—</span>статус и оплата каждого заказа — так же, как видит менеджер</li>
+          <li class="flex gap-3"><span class="text-brand-gold">—</span>повтор прошлого заказа в один клик</li>
+          <li class="flex gap-3"><span class="text-brand-gold">—</span>имя, телефон и адрес подставляются при оформлении</li>
+        </ul>
+      </div>
+
+      <form class="flex flex-col gap-5 px-6 py-10 sm:px-12 sm:py-14" novalidate @submit.prevent="submitLogin()">
+        <div>
+          <h2 class="font-heading text-[2rem] font-medium leading-none">Вход по телефону</h2>
+          <p class="mt-3 text-[0.8125rem] font-light text-ink-muted">Покажем заказы, оформленные на этот номер — на сайте, в WhatsApp, Instagram или по телефону.</p>
+        </div>
+        <label class="flex flex-col gap-2">
+          <span class="text-[0.8125rem]">Имя</span>
+          <input type="text" x-model="login.name" autocomplete="name" class="field" :class="loginErrors.name && 'is-invalid'" placeholder="Как к вам обращаться" />
+          <span class="field-error" x-show="loginErrors.name" x-text="loginErrors.name"></span>
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-[0.8125rem]">Телефон</span>
+          <input type="tel" x-model="login.phone" @input="login.phone = $store.fmt.phone(login.phone)" autocomplete="tel"
+                 class="field" :class="loginErrors.phone && 'is-invalid'" placeholder="+7 (7XX) XXX-XX-XX" />
+          <span class="field-error" x-show="loginErrors.phone" x-text="loginErrors.phone"></span>
+        </label>
+        <button type="submit" class="btn-primary btn-l mt-1">Войти</button>
+        <div class="rounded-xl border border-dashed border-brand-gold-light px-4 py-3 text-xs font-light leading-relaxed text-ink-muted">
+          <span class="demo-tag mr-1 align-middle">Демо</span>
+          Вход без пароля — только для показа: авторизации на backend пока нет, заказы находятся по номеру телефона.
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <!-- ===================== Профиль ===================== -->
+  <template x-if="$store.account.me">
+    <div class="flex flex-col gap-6">
+      <!-- Шапка профиля -->
+      <section class="card flex flex-wrap items-center gap-x-6 gap-y-5 p-5 sm:p-7">
+        <span class="grid size-16 shrink-0 place-items-center rounded-full bg-brand-gold font-heading text-[1.75rem] font-medium text-surface sm:size-20 sm:text-[2rem]"
+              x-text="$store.fmt.initials($store.account.me.name)"></span>
+        <div class="min-w-[12rem] flex-1">
+          <p class="eyebrow">Профиль клиента</p>
+          <h1 class="mt-2 font-heading text-[clamp(1.75rem,4vw,2.5rem)] font-medium leading-none [overflow-wrap:anywhere]" x-text="$store.account.me.name"></h1>
+          <p class="mt-2 text-[0.8125rem] font-light text-ink-muted">
+            <span x-text="$store.account.me.phone"></span>
+            <span x-show="$store.account.me.email"> · <span x-text="$store.account.me.email"></span></span>
+          </p>
+        </div>
+        <dl class="grid w-full grid-cols-3 gap-2 sm:gap-3 xl:w-auto">
+          <div class="min-w-0 rounded-xl bg-brand-light px-3 py-3 sm:min-w-[8.5rem] sm:px-4">
+            <dt class="caps text-[0.5625rem] tracking-[0.18em] text-ink-muted">Заказов</dt>
+            <dd class="mt-1 truncate font-heading text-[clamp(1.25rem,3vw,1.75rem)] font-semibold leading-none" x-text="stats.count"></dd>
+          </div>
+          <div class="min-w-0 rounded-xl bg-brand-light px-3 py-3 sm:min-w-[8.5rem] sm:px-4">
+            <dt class="caps text-[0.5625rem] tracking-[0.18em] text-ink-muted">В работе</dt>
+            <dd class="mt-1 truncate font-heading text-[clamp(1.25rem,3vw,1.75rem)] font-semibold leading-none" x-text="stats.active"></dd>
+          </div>
+          <div class="min-w-0 rounded-xl bg-brand-light px-3 py-3 sm:min-w-[8.5rem] sm:px-4">
+            <dt class="caps text-[0.5625rem] tracking-[0.18em] text-ink-muted">На сумму</dt>
+            <dd class="mt-1 truncate font-heading text-[clamp(1.25rem,3vw,1.75rem)] font-semibold leading-none" x-text="$store.fmt.money(stats.sum)"></dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- Вкладки -->
+      <div class="flex flex-wrap items-center gap-2" role="tablist">
+        <button type="button" role="tab" class="chip" :class="tab === 'orders' && 'is-active'" :aria-selected="tab === 'orders'" @click="tab = 'orders'">Мои заказы</button>
+        <button type="button" role="tab" class="chip" :class="tab === 'profile' && 'is-active'" :aria-selected="tab === 'profile'" @click="tab = 'profile'">Личные данные</button>
+        <a href="/favorites.html" class="chip inline-flex items-center gap-2">Избранное <span class="counter" x-show="$store.fav.count" x-text="$store.fav.count"></span></a>
+        <button type="button" class="ml-auto text-xs font-light text-ink-muted underline underline-offset-4 hover:text-error" @click="$store.account.logout()">Выйти</button>
+      </div>
+
+      <!-- Мои заказы — из backend, по номеру телефона -->
+      <section x-show="tab === 'orders'" class="flex flex-col gap-4">
+        <p x-show="loading && !orders.length" class="py-6 text-sm font-light text-ink-muted" role="status">Загружаем заказы…</p>
+        <p x-show="error" x-cloak class="rounded-card bg-error-soft px-5 py-3 text-[0.8125rem] text-error" x-text="error"></p>
+        <div x-show="!loading && !error && !orders.length" class="card px-8 py-14 text-center">
+          <p class="font-heading text-[1.625rem]">Заказов пока нет</p>
+          <p class="mt-2 text-sm font-light text-ink-muted">Оформите первый — он появится здесь со статусом</p>
+          <a href="/catalog.html" class="btn-primary mt-6">Перейти в каталог</a>
+        </div>
+
+        <template x-for="o in orders" :key="o.id">
+          <article class="card overflow-hidden border border-transparent transition" :class="open === o.id && 'border-brand-gold-light'">
+            <button type="button" class="grid w-full grid-cols-[minmax(0,1fr)_auto_1.25rem] items-center gap-x-4 gap-y-2 px-4 py-4 text-left sm:px-7 sm:py-5 md:grid-cols-[8rem_minmax(0,1fr)_auto_9rem_1.5rem] md:gap-6"
+                    @click="open = open === o.id ? null : o.id" :aria-expanded="open === o.id">
+              <span>
+                <span class="block font-heading text-[1.375rem] font-semibold leading-none" x-text="`№ ${o.order_no ?? '—'}`"></span>
+                <span class="mt-1 block text-xs font-light text-ink-muted" x-text="$store.fmt.dateTime(o.created_at)"></span>
+              </span>
+              <span class="col-span-3 row-start-3 flex min-w-0 flex-wrap gap-2 md:col-span-1 md:row-start-auto">
+                <span class="caps inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-[0.5625rem] tracking-[0.12em]" :class="payment[payKey(o)].badge" x-text="payment[payKey(o)].label"></span>
+                <span class="truncate text-[0.8125rem] font-light text-ink-muted" x-text="delivery[o.delivery_method] + (o.city ? `, ${o.city}` : '')"></span>
+              </span>
+              <span class="caps col-span-2 row-start-2 inline-flex items-center gap-1.5 justify-self-start whitespace-nowrap rounded-full px-3 py-1 text-[0.5625rem] tracking-[0.12em] md:col-span-1 md:row-start-auto"
+                    :class="statuses[o.status].badge"><span class="size-1.5 rounded-full bg-current"></span><span x-text="statuses[o.status].client"></span></span>
+              <span class="whitespace-nowrap text-right font-heading text-[1.25rem] font-semibold sm:text-[1.375rem]" x-text="$store.fmt.money($store.fmt.tiyn(o.total))"></span>
+              <svg class="size-4 text-ink-muted transition-transform" :class="open === o.id && 'rotate-180'" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 6 4 4 4-4"/></svg>
+            </button>
+
+            <div x-show="open === o.id" class="border-t border-line px-4 pb-6 pt-5 sm:px-7 sm:pb-7 sm:pt-6">
+              <template x-if="o.status !== 'cancelled'">
+                <div>
+                  <ol class="grid gap-1.5 sm:gap-2" :style="`grid-template-columns: repeat(${flowFor(o).length}, minmax(0, 1fr))`">
+                    <template x-for="(s, i) in flowFor(o)" :key="s">
+                      <li class="flex flex-col gap-2">
+                        <span class="h-1 rounded-full" :class="i <= stepIn(o) ? 'bg-brand-gold' : 'bg-line'"></span>
+                        <span class="hidden text-[0.6875rem] leading-tight sm:block" :class="i <= stepIn(o) ? 'text-ink' : 'font-light text-ink-muted'" x-text="statuses[s].client"></span>
+                      </li>
+                    </template>
+                  </ol>
+                  <p class="mt-2 text-[0.75rem] sm:hidden" x-text="`Шаг ${stepIn(o) + 1} из ${flowFor(o).length}: ${statuses[o.status].client}`"></p>
+                </div>
+              </template>
+              <p x-show="o.status === 'cancelled'" class="rounded-xl bg-error-soft px-4 py-3 text-[0.8125rem] text-error"
+                 x-text="`Заказ отменён${o.payment_status === 'refunded' ? ' · деньги возвращены' : ''}`"></p>
+
+              <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_17rem] md:gap-8">
+                <div>
+                  <p x-show="!details[o.id]" class="text-[0.8125rem] font-light text-ink-muted">Загружаем состав…</p>
+                  <ul class="divide-y divide-line">
+                    <template x-for="i in details[o.id]?.items ?? []" :key="i.id">
+                      <li class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-3">
+                        <span class="min-w-0">
+                          <a x-show="i.product_id" :href="`/product.html?id=${i.product_id}`" class="block truncate text-sm hover:text-brand-gold" x-text="i.product_name"></a>
+                          <span x-show="!i.product_id" class="block truncate text-sm" x-text="i.product_name"></span>
+                          <span class="text-xs font-light text-ink-muted" x-text="`${$store.fmt.qty(i.quantity)} ${i.unit} × ${$store.fmt.money($store.fmt.tiyn(i.price))}`"></span>
+                        </span>
+                        <span class="text-sm" x-text="$store.fmt.money($store.fmt.tiyn(i.subtotal))"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </div>
+
+                <aside class="flex flex-col gap-5 text-[0.8125rem]">
+                  <dl class="space-y-2">
+                    <div class="flex justify-between gap-3"><dt class="font-light text-ink-muted">Получение</dt><dd class="text-right" x-text="delivery[o.delivery_method]"></dd></div>
+                    <div x-show="o.delivery_address || o.city" class="flex justify-between gap-3"><dt class="font-light text-ink-muted">Адрес</dt><dd class="text-right" x-text="[o.city, o.delivery_address].filter(Boolean).join(', ')"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="font-light text-ink-muted">Товары</dt><dd x-text="$store.fmt.money($store.fmt.tiyn(o.items_total))"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="font-light text-ink-muted">Доставка</dt><dd x-text="o.delivery_method === 'pickup' ? '—' : $store.fmt.tiyn(o.delivery) ? $store.fmt.money($store.fmt.tiyn(o.delivery)) : 'сообщит менеджер'"></dd></div>
+                    <div class="flex justify-between gap-3 border-t border-line pt-2"><dt>Итого</dt><dd class="font-medium" x-text="$store.fmt.money($store.fmt.tiyn(o.total))"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="font-light text-ink-muted">Оплачено</dt><dd x-text="$store.fmt.money($store.fmt.tiyn(o.paid))"></dd></div>
+                  </dl>
+                  <p x-show="o.payment_status !== 'paid' && o.status !== 'cancelled'" class="text-[0.6875rem] font-light text-ink-muted">Оплата — наличными или по QR Kaspi. Менеджер отметит её вручную.</p>
+                  <div class="mt-auto flex flex-col gap-2">
+                    <button type="button" class="btn-outline btn-s" @click="repeat(o)" :disabled="!details[o.id]">Повторить заказ</button>
+                    <p x-show="notice?.id === o.id" class="text-xs text-error" x-text="notice?.text"></p>
+                    <button type="button" x-show="o.status === 'new' && o.payment_status !== 'paid'" @click="cancel(o)"
+                            class="text-xs font-light underline underline-offset-4 transition"
+                            :class="confirmCancel === o.id ? 'text-error' : 'text-ink-muted hover:text-error'"
+                            x-text="confirmCancel === o.id ? 'Нажмите ещё раз, чтобы отменить' : 'Отменить заказ'"></button>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </article>
+        </template>
+      </section>
+
+      <!-- Личные данные -->
+      <form x-show="tab === 'profile'" class="card grid max-w-[46rem] grid-cols-1 gap-5 p-5 sm:grid-cols-2 sm:p-8" novalidate @submit.prevent="saveProfile()">
+        <label class="flex flex-col gap-2">
+          <span class="text-[0.8125rem]">Имя</span>
+          <input type="text" x-model="profile.name" autocomplete="name" class="field" :class="profileErrors.name && 'is-invalid'" />
+          <span class="field-error" x-show="profileErrors.name" x-text="profileErrors.name"></span>
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-[0.8125rem]">Телефон</span>
+          <input type="tel" :value="profile.phone" disabled class="field" />
+          <span class="text-xs font-light text-ink-muted">По нему вы входите в профиль</span>
+        </label>
+        <label class="flex flex-col gap-2 sm:col-span-2">
+          <span class="text-[0.8125rem]">Почта</span>
+          <input type="email" x-model="profile.email" autocomplete="email" class="field" :class="profileErrors.email && 'is-invalid'" placeholder="name@example.kz" />
+          <span class="field-error" x-show="profileErrors.email" x-text="profileErrors.email"></span>
+        </label>
+        <label class="flex flex-col gap-2 sm:col-span-2">
+          <span class="text-[0.8125rem]">Адрес доставки по умолчанию</span>
+          <input type="text" x-model="profile.address" autocomplete="street-address" class="field" placeholder="Город, улица, дом, квартира" />
+        </label>
+        <div class="flex items-center gap-4 sm:col-span-2">
+          <button type="submit" class="btn-primary">Сохранить</button>
+          <span x-show="savedAt" x-transition.opacity class="text-xs text-success">Сохранено</span>
+        </div>
+      </form>
+    </div>
+  </template>
+</main>
+
+<!-- @include layout-end.html -->
+</body>
+</html>

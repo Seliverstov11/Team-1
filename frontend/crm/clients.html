@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Клиенты — Bakeloom CRM</title>
+</head>
+<body data-page="clients">
+<!-- @include crm-layout-start.html -->
+
+<main id="main" x-data="crmClients" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div>
+    <h1 class="crm-title text-balance">Клиенты</h1>
+    <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.fmt.count(rows.length, 'клиент', 'клиента', 'клиентов')} · собраны из заказов по номеру телефона`"></p>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <input type="search" x-model.debounce.200ms="q" class="crm-field w-full sm:w-72" placeholder="Имя, телефон, город" aria-label="Поиск клиента" />
+    <select x-model="sort" class="crm-field" aria-label="Сортировка">
+      <option value="sum">По сумме заказов</option>
+      <option value="due">По долгу</option>
+      <option value="last">По последнему заказу</option>
+    </select>
+  </div>
+
+  <section class="crm-card overflow-hidden">
+    <div class="overflow-x-auto"><table class="crm-table">
+      <thead><tr><th>Клиент</th><th>Город</th><th>Каналы</th><th class="text-right">Заказов</th><th class="text-right">Сумма</th><th class="text-right">Не оплачено</th><th>Последний</th></tr></thead>
+      <tbody>
+        <template x-for="c in rows" :key="c.key">
+          <tr class="cursor-pointer transition hover:bg-brand-light/60" @click="location.href = `/crm/orders.html?q=${encodeURIComponent(c.phone ?? c.name)}`">
+            <td><span class="block whitespace-nowrap font-medium" x-text="c.name"></span><span class="text-[0.6875rem] text-ink-muted" x-text="c.phone ?? '—'"></span></td>
+            <td class="whitespace-nowrap text-ink-muted" x-text="c.city ?? '—'"></td>
+            <td><div class="flex flex-wrap gap-1"><template x-for="ch in c.channels" :key="ch"><span class="whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-[0.625rem]" x-text="$store.crm.channels[ch]"></span></template></div></td>
+            <td class="text-right" x-text="c.count"></td>
+            <td class="whitespace-nowrap text-right font-semibold" x-text="$store.fmt.money(c.sum)"></td>
+            <td class="whitespace-nowrap text-right" :class="c.due ? 'font-semibold text-error' : 'text-ink-muted'" x-text="c.due ? $store.fmt.money(c.due) : '—'"></td>
+            <td class="whitespace-nowrap text-[0.75rem] text-ink-muted" x-text="`№ ${c.last.order_no}, ${$store.fmt.date(c.last.created_at)}`"></td>
+          </tr>
+        </template>
+        <tr x-show="!rows.length"><td colspan="7" class="py-12 text-center text-ink-muted">Клиентов не найдено</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>

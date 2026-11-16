@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Сводка — Bakeloom CRM</title>
+</head>
+<body data-page="home">
+<!-- @include crm-layout-start.html -->
+
+<main id="main" x-data="crmHome" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div>
+    <h1 class="crm-title text-balance">Сводка</h1>
+    <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.fmt.count(kpi.total, 'заказ', 'заказа', 'заказов')} в базе · ${kpi.inWork} в работе`"></p>
+  </div>
+
+  <section class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+    <a href="/crm/orders.html?pay=unpaid" class="crm-kpi border-l-4 border-l-error transition hover:border-brand-gold">
+      <p class="crm-label">Не оплачено</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="$store.fmt.money(kpi.unpaidSum)"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`${$store.fmt.count(kpi.unpaidCount, 'заказ', 'заказа', 'заказов')} · ${kpi.unpaidShare}% от неотменённых`"></p>
+    </a>
+    <a href="/crm/orders.html?status=new" class="crm-kpi border-l-4 border-l-status-new transition hover:border-brand-gold">
+      <p class="crm-label">Новые</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.newCount"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted">ждут подтверждения</p>
+    </a>
+    <div class="crm-kpi border-l-4 border-l-brand-dark">
+      <p class="crm-label">Получено оплат</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="$store.fmt.money(kpi.paidSum)"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`из ${$store.fmt.money(kpi.revenue)} по неотменённым`"></p>
+    </div>
+    <a href="/crm/stock.html?level=low" class="crm-kpi border-l-4 border-l-brand-gold transition hover:border-brand-gold">
+      <p class="crm-label">Ниже минимума</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.low"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`позиций к закупке · ${kpi.out} нет в наличии`"></p>
+    </a>
+  </section>
+
+  <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
+    <section class="crm-card overflow-hidden">
+      <div class="flex items-center justify-between px-4 pt-5 sm:px-6">
+        <h2 class="crm-h2">Ждут оплаты</h2>
+        <a href="/crm/orders.html?pay=unpaid" class="text-[0.75rem] text-brand-gold hover:underline">все →</a>
+      </div>
+      <ul class="mt-3 divide-y divide-line/70">
+        <template x-for="o in unpaid" :key="o.id">
+          <li>
+            <a :href="`/crm/order.html?id=${o.id}`" class="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-[0.8125rem] transition hover:bg-brand-light sm:px-6">
+              <span class="font-semibold" x-text="o.order_no"></span>
+              <span class="min-w-0 truncate"><span x-text="o.client_name"></span><span class="text-ink-muted" x-text="` · ${$store.crm.channels[o.channel]} · ${$store.crm.statuses[o.status].label.toLowerCase()}`"></span></span>
+              <span class="font-semibold text-error" x-text="$store.fmt.money($store.crm.remaining(o))"></span>
+            </a>
+          </li>
+        </template>
+        <li x-show="!unpaid.length" class="px-6 py-8 text-center text-[0.8125rem] text-ink-muted">Все заказы оплачены</li>
+      </ul>
+    </section>
+
+    <section class="crm-card p-4 sm:p-6">
+      <h2 class="crm-h2">Заказы по статусам</h2>
+      <ul class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <template x-for="r in byStatus" :key="r.s">
+          <li>
+            <a :href="`/crm/orders.html?status=${r.s}`" class="block rounded-control bg-brand-light px-3 py-2.5 transition hover:bg-brand-gold-soft">
+              <span class="block font-heading text-[1.5rem] font-semibold leading-none" x-text="r.n"></span>
+              <span class="mt-1 block text-[0.6875rem] text-ink-muted" x-text="$store.crm.statuses[r.s].label"></span>
+            </a>
+          </li>
+        </template>
+      </ul>
+      <h2 class="crm-h2 mt-6">Откуда заказы</h2>
+      <ul class="mt-3 space-y-2 text-[0.8125rem]">
+        <template x-for="c in byChannel" :key="c.id">
+          <li class="grid grid-cols-[8rem_minmax(0,1fr)_2rem] items-center gap-3">
+            <span x-text="c.label"></span>
+            <span class="h-2 rounded-full bg-brand-light"><span class="block h-full rounded-full bg-brand-dark" :style="`width: ${c.pct}%`"></span></span>
+            <span class="text-right font-medium" x-text="c.n"></span>
+          </li>
+        </template>
+      </ul>
+    </section>
+
+    <section class="crm-card overflow-hidden">
+      <div class="flex items-center justify-between px-4 pt-5 sm:px-6">
+        <h2 class="crm-h2">Новые заказы</h2>
+        <a href="/crm/orders.html?status=new" class="text-[0.75rem] text-brand-gold hover:underline">все →</a>
+      </div>
+      <ul class="mt-3 divide-y divide-line/70">
+        <template x-for="o in fresh" :key="o.id">
+          <li>
+            <a :href="`/crm/order.html?id=${o.id}`" class="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-[0.8125rem] transition hover:bg-brand-light sm:px-6">
+              <span class="font-semibold" x-text="o.order_no"></span>
+              <span class="min-w-0 truncate"><span x-text="o.client_name"></span><span class="text-ink-muted" x-text="` · ${$store.fmt.dateTime(o.created_at)}`"></span></span>
+              <span class="font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(o.total))"></span>
+            </a>
+          </li>
+        </template>
+        <li x-show="!fresh.length" class="px-6 py-8 text-center text-[0.8125rem] text-ink-muted">Новых нет</li>
+      </ul>
+    </section>
+
+    <section class="crm-card overflow-hidden">
+      <div class="flex items-center justify-between px-4 pt-5 sm:px-6">
+        <h2 class="crm-h2">Закупить в первую очередь</h2>
+        <a href="/crm/stock.html?level=low" class="text-[0.75rem] text-brand-gold hover:underline">все →</a>
+      </div>
+      <ul class="mt-3 divide-y divide-line/70">
+        <template x-for="s in purchase" :key="s.product_id">
+          <li class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-[0.8125rem] sm:px-6">
+            <span class="min-w-0 truncate"><span x-text="$store.crm.productName($store.crm.product(s.product_id)) || s.product_name"></span><span class="text-ink-muted" x-text="` · ${s.sku ?? ''}`"></span></span>
+            <span class="whitespace-nowrap text-[0.75rem]"><span class="font-semibold" x-text="$store.fmt.qty(s.available_qty)"></span><span class="text-ink-muted" x-text="` из мин. ${$store.fmt.qty(s.min_stock_qty ?? '0')}`"></span></span>
+          </li>
+        </template>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>

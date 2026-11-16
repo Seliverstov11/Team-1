@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Остатки и полки — Bakeloom CRM</title>
+</head>
+<body data-page="stock">
+<!-- @include crm-layout-start.html -->
+
+<main id="main" x-data="crmStock" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+    <div>
+      <h1 class="crm-title text-balance">Остатки и полки</h1>
+      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted"
+         x-text="`${$store.fmt.count(kpi.total, 'позиция', 'позиции', 'позиций')} · доступно = остаток − резерв под заказы`"></p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <button type="button" class="btn-outline" @click="exportLow()" title="CSV для закупки, открывается в Excel">Закупка → Excel</button>
+      <button type="button" class="btn-primary" @click="openReceipt()">↓ Приход товара</button>
+    </div>
+  </div>
+
+  <section class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+    <button type="button" class="crm-kpi border-l-4 border-l-brand-dark text-left" @click="tab = ''">
+      <p class="crm-label">Всего позиций</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.total"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`в ${$store.crm.categories.length} категориях`"></p>
+    </button>
+    <button type="button" class="crm-kpi border-l-4 border-l-brand-gold text-left transition hover:border-brand-gold" @click="tab = 'low'">
+      <p class="crm-label">Ниже минимума</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.low"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted">список для закупки</p>
+    </button>
+    <button type="button" class="crm-kpi border-l-4 border-l-error text-left transition hover:border-brand-gold" @click="tab = 'out'">
+      <p class="crm-label">Нет в наличии</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.out"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted">на сайте «нет в наличии»</p>
+    </button>
+    <div class="crm-kpi border-l-4 border-l-status-new">
+      <p class="crm-label">В резерве</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.reserved"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted">позиций под заказы в работе</p>
+    </div>
+  </section>
+
+  <nav class="-mx-4 flex gap-6 overflow-x-auto overflow-y-hidden px-4 shadow-[inset_0_-1px_0_var(--color-line)] [scrollbar-width:none] sm:mx-0 sm:px-0 xl:gap-7" aria-label="Выборка">
+    <button type="button" class="crm-tab whitespace-nowrap" :class="!tab && 'is-active'" @click="tab = ''">Все <span class="crm-count" x-text="kpi.total"></span></button>
+    <button type="button" class="crm-tab whitespace-nowrap" :class="tab === 'low' && 'is-active'" @click="tab = 'low'">Ниже минимума — закупить <span class="crm-count" x-text="kpi.low"></span></button>
+    <button type="button" class="crm-tab whitespace-nowrap" :class="tab === 'out' && 'is-active'" @click="tab = 'out'">Нет в наличии <span class="crm-count" x-text="kpi.out"></span></button>
+  </nav>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <input type="search" x-model.debounce.200ms="q" class="crm-field w-full sm:w-72" placeholder="Название, артикул или полка" aria-label="Поиск товара" />
+    <select x-model="section" class="crm-field" aria-label="Раздел">
+      <option value="">Раздел: все</option>
+      <template x-for="s in $store.crm.sections" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
+    </select>
+    <span class="text-[0.75rem] text-ink-muted" x-text="`Найдено: ${list.length}`"></span>
+  </div>
+
+  <section class="crm-card overflow-hidden">
+    <ul class="divide-y divide-line/70 md:hidden">
+      <template x-for="s in page" :key="s.product_id">
+        <li class="flex items-center gap-3 px-4 py-3">
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[0.8125rem]" x-text="name(s)"></p>
+            <p class="text-[0.6875rem] text-ink-muted" x-text="`${s.storage_location ?? 'полка не указана'} · арт. ${s.sku ?? '—'}`"></p>
+            <p class="text-[0.75rem]" x-text="`Остаток ${$store.fmt.qty(s.stock_qty)} · резерв ${$store.fmt.qty(s.reserved_qty)} · доступно ${$store.fmt.qty(s.available_qty)} · мин. ${$store.fmt.qty(s.min_stock_qty ?? '0')}`"></p>
+            <span class="crm-badge mt-1" :class="level(s).cls" x-text="level(s).label"></span>
+          </div>
+          <button type="button" class="btn-outline btn-s shrink-0 px-3" @click="openReceipt(s)" :aria-label="`Приход: ${name(s)}`">+</button>
+        </li>
+      </template>
+      <li x-show="!list.length" class="px-4 py-12 text-center text-[0.8125rem] text-ink-muted">Товаров не найдено</li>
+    </ul>
+    <div class="hidden overflow-x-auto md:block"><table class="crm-table">
+      <thead><tr>
+        <th>Товар</th><th>Полка</th><th class="text-right">Остаток</th><th class="text-right">Резерв</th><th class="text-right">Доступно</th>
+        <th class="text-right" title="Минимальный остаток — ниже него позиция попадает в закупку">Мин.</th>
+        <th class="text-right" x-show="tab === 'low'">Закупить</th><th>Состояние</th><th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="s in page" :key="s.product_id">
+          <tr :class="s.low_stock && 'bg-brand-gold-soft/25'">
+            <td>
+              <div class="flex items-center gap-3" x-data="{ pid: s.product_id }">
+                <!-- @include crm-swatch.html -->
+                <span class="min-w-[12rem]"><span class="block" x-text="name(s)"></span><span class="whitespace-nowrap text-[0.6875rem] text-ink-muted" x-text="`арт. ${s.sku ?? '—'} · ${$store.crm.category($store.crm.product(s.product_id)?.category_id).name ?? ''}`"></span></span>
+              </div>
+            </td>
+            <td class="whitespace-nowrap text-[0.75rem]" :class="!s.storage_location && 'text-ink-placeholder'" x-text="s.storage_location ?? 'не указана'"></td>
+            <td class="whitespace-nowrap text-right font-medium" x-text="`${$store.fmt.qty(s.stock_qty)} ${s.unit}`"></td>
+            <td class="whitespace-nowrap text-right text-ink-muted" x-text="bl.milli(s.reserved_qty) ? $store.fmt.qty(s.reserved_qty) : '—'"></td>
+            <td class="whitespace-nowrap text-right font-semibold" :class="bl.milli(s.available_qty) <= 0 ? 'text-error' : s.low_stock ? 'text-status-confirmed' : ''" x-text="$store.fmt.qty(s.available_qty)"></td>
+            <td class="whitespace-nowrap text-right text-ink-muted" x-text="s.min_stock_qty ? $store.fmt.qty(s.min_stock_qty) : '—'"></td>
+            <td x-show="tab === 'low'" class="whitespace-nowrap text-right font-semibold" x-text="`${$store.fmt.qty(shortage(s) / 1000)} ${s.unit}`"></td>
+            <td><span class="crm-badge whitespace-nowrap" :class="level(s).cls" x-text="level(s).label"></span></td>
+            <td><button type="button" class="btn-outline btn-s whitespace-nowrap px-3" @click="openReceipt(s)" :aria-label="`Приход: ${name(s)}`" title="Приход товара">+ Приход</button></td>
+          </tr>
+        </template>
+        <tr x-show="!list.length"><td colspan="9" class="py-12 text-center text-ink-muted">Товаров не найдено</td></tr>
+      </tbody>
+    </table></div>
+    <div x-show="list.length > shown" class="border-t border-line/70 px-4 py-3 text-center">
+      <button type="button" class="btn-outline btn-s" @click="shown += 60" x-text="`Показать ещё (${list.length - shown})`"></button>
+    </div>
+  </section>
+
+  <!-- Журнал движений -->
+  <section class="crm-card p-4 sm:p-6">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="crm-h2">Движения товаров</h2>
+      <button type="button" class="btn-outline btn-s" @click="loadMoves()" x-text="showMoves ? 'Обновить' : 'Показать последние 200'"></button>
+    </div>
+    <ul x-show="showMoves" class="mt-4 divide-y divide-line/70 text-[0.8125rem]">
+      <template x-for="m in movements" :key="m.id">
+        <li class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 py-2.5 md:grid-cols-[8rem_7rem_minmax(0,1fr)_5rem]">
+          <span class="text-[0.75rem] text-ink-muted" x-text="$store.fmt.dateTime(m.created_at)"></span>
+          <span class="hidden text-[0.75rem] md:block" x-text="moveLabel[m.movement_type] ?? m.movement_type"></span>
+          <span class="col-span-2 row-start-2 min-w-0 truncate md:col-span-1 md:row-start-auto">
+            <span x-text="$store.crm.stockOf(m.product_id)?.product_name ?? m.product_id"></span><span class="text-ink-muted" x-text="m.reason ? ` — ${m.reason}` : ''"></span>
+          </span>
+          <span class="text-right font-semibold" :class="bl.milli(m.quantity) > 0 ? 'text-success' : 'text-error'" x-text="$store.fmt.qty(m.quantity)"></span>
+        </li>
+      </template>
+      <li x-show="!movements.length" class="py-6 text-center text-ink-muted">Движений нет</li>
+    </ul>
+  </section>
+
+  <!-- ===================== Модалка: приход ===================== -->
+  <template x-teleport="body">
+  <div x-show="receipt" x-cloak x-effect="document.documentElement.classList.toggle('overflow-hidden', !!receipt)">
+  <template x-if="receipt">
+    <div class="crm-modal-backdrop" @keydown.escape.window="receipt = null" @click.self="receipt = null">
+      <form class="crm-modal max-w-[34rem]" novalidate @submit.prevent="saveReceipt()" role="dialog" aria-modal="true" aria-labelledby="rc-title">
+        <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
+          <div>
+            <h2 id="rc-title" class="crm-h2">Приход товара</h2>
+            <p class="mt-1 text-[0.75rem] text-ink-muted">При приёмке сразу указываем полку, куда кладём</p>
+          </div>
+          <button type="button" class="text-xl text-ink-muted hover:text-ink" @click="receipt = null" aria-label="Закрыть">×</button>
+        </div>
+        <div class="flex flex-col gap-4 px-5 py-5 sm:px-7">
+          <template x-if="!receipt.productId">
+            <div class="flex flex-col gap-2">
+              <input type="search" x-model="receipt.search" class="crm-field" placeholder="Найти товар или артикул" aria-label="Поиск товара" />
+              <select class="crm-field" size="6" @change="pickReceipt($event.target.value)" aria-label="Товар">
+                <template x-for="s in receiptChoices" :key="s.product_id"><option :value="s.product_id" x-text="`${name(s)} · ${s.sku ?? ''}`"></option></template>
+              </select>
+            </div>
+          </template>
+          <template x-if="receipt.productId">
+            <div class="rounded-control bg-brand-light px-4 py-3 text-[0.8125rem]">
+              <p class="font-medium" x-text="name($store.crm.stockOf(receipt.productId))"></p>
+              <p class="text-[0.6875rem] text-ink-muted" x-text="`Остаток ${$store.fmt.qty($store.crm.stockOf(receipt.productId).stock_qty)} · мин. ${$store.fmt.qty($store.crm.stockOf(receipt.productId).min_stock_qty ?? '0')}`"></p>
+              <button type="button" class="mt-1 text-[0.6875rem] text-brand-gold hover:underline" @click="receipt.productId = ''">другой товар</button>
+            </div>
+          </template>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]">
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[0.75rem]">Количество</span>
+              <input type="number" min="1" step="1" x-model.number="receipt.qty" class="crm-field" />
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[0.75rem]">Полка</span>
+              <input type="text" x-model="receipt.location" class="crm-field" placeholder="Склад А / стеллаж 1 / полка 2" />
+            </label>
+          </div>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Основание</span>
+            <input type="text" x-model="receipt.reason" class="crm-field" placeholder="Поставщик, № накладной" />
+          </label>
+          <p x-show="serverError" class="rounded-control bg-error-soft px-4 py-2.5 text-[0.75rem] text-error" x-text="serverError"></p>
+        </div>
+        <div class="flex justify-end gap-3 border-t border-line px-5 py-4 sm:px-7">
+          <button type="button" class="btn-outline" @click="receipt = null">Отмена</button>
+          <button type="submit" class="btn-primary" :disabled="sending || !receipt.productId">Записать приход</button>
+        </div>
+      </form>
+    </div>
+  </template>
+  </div>
+  </template>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>
