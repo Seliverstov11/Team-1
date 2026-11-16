@@ -16,19 +16,23 @@ export const STATUS_ORDER = ['new', 'confirmed', 'assembled', 'handed_over', 'sh
 // Основной путь — для степпера (cancelled в стороне)
 export const FLOW = STATUS_ORDER.slice(0, 7)
 
-// Те же переходы проверяет backend (409 на остальные)
+// Граф переходов (ФТ-З-03) — копия правил сервера, чтобы не предлагать заведомо недопустимое.
+// Решает всё равно сервер: на недопустимый переход он отвечает 409 с текстом причины.
 export const NEXT = {
   new: ['confirmed', 'cancelled'],
-  confirmed: ['assembled', 'new', 'cancelled'],
-  assembled: ['handed_over', 'confirmed', 'cancelled'],
+  confirmed: ['assembled', 'cancelled'],
+  assembled: ['handed_over', 'cancelled'],
   handed_over: ['shipped', 'delivered', 'completed'],
-  shipped: ['delivered'],
+  shipped: ['delivered', 'completed'],
   delivered: ['completed'],
   completed: [],
   cancelled: [],
 }
+// Состав правится до сборки
+export const EDITABLE = ['new', 'confirmed']
+
 export const STATUS_HINT = {
-  new: 'Вернуть в новые — с клиентом ещё не договорились',
+  new: 'Заказ ещё не согласован с клиентом',
   confirmed: 'Состав, сумма и способ получения согласованы с клиентом',
   assembled: 'Склад собрал заказ, товар ещё в резерве',
   handed_over: 'Выдан клиенту или передан в доставку — остаток списывается со склада',
@@ -57,12 +61,11 @@ export const DELIVERY = {
   kazpost: 'Казпочта',
 }
 
-// Онлайн-оплаты нет: QR Kaspi статический, наличные. online — только чтение старых записей
+// Онлайн-оплаты нет (ФТ-П-01): QR Kaspi статический и наличные
 export const PAYMENT_METHODS = {
   none: 'Не указан',
   cash: 'Наличные',
   kaspi_transfer: 'Kaspi (QR / перевод)',
-  online: 'Онлайн',
 }
 
 export const PAYMENT = {
@@ -71,5 +74,5 @@ export const PAYMENT = {
   paid:     { label: 'Оплачен',    badge: 'bg-success-soft text-success' },
   refunded: { label: 'Возврат',    badge: 'bg-line text-ink-muted' },
 }
-// unpaid с ненулевой суммой — частичная предоплата
-export const paymentKey = o => (o.payment_status === 'unpaid' && o.paid && !/^0+(\.0+)?$/.test(o.paid) ? 'partial' : o.payment_status)
+// Кладовщику поля оплаты не приходят — тогда и бейджа нет
+export const paymentKey = o => (o && PAYMENT[o.payment_status] ? o.payment_status : null)
