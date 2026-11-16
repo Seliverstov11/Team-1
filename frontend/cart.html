@@ -42,12 +42,10 @@
             <a :href="`/product.html?id=${p.id}`" class="mt-1 block text-sm hover:text-brand-gold" x-text="bl.fullName(p)"></a>
             <p class="mt-1 text-[0.625rem] tracking-wider text-ink-muted" x-text="`Арт. ${p.sku}`"></p>
             <p class="mt-1 text-xs font-light text-ink-muted">
-              <span x-show="line.wholesale" class="mr-1 text-ink-placeholder line-through" x-text="$store.fmt.money(bl.retail(p))"></span>
-              <span :class="line.wholesale && 'font-medium text-brand-dark'" x-text="`${$store.fmt.money(line.price)} за ${p.unit}`"></span>
-              <span x-show="line.wholesale" class="ml-1 rounded-full bg-brand-gold-soft px-2 py-0.5 text-[0.625rem] text-brand-dark">оптовая цена</span>
+              <span x-show="bl.isPersonal(p)" class="mr-1 text-ink-placeholder line-through" x-text="$store.fmt.money(bl.basePrice(p))"></span>
+              <span :class="bl.isPersonal(p) && 'font-medium text-brand-dark'" x-text="`${$store.fmt.money(line.price)} за ${p.unit}`"></span>
+              <span x-show="bl.isPersonal(p)" class="ml-1 rounded-full bg-brand-gold-soft px-2 py-0.5 text-[0.625rem] text-brand-dark">ваша цена</span>
             </p>
-            <p x-show="line.available && line.toWholesale > 0" class="mt-1 text-[0.6875rem] text-ink-muted"
-               x-text="`Ещё ${line.toWholesale} ${p.unit} — и цена ${$store.fmt.money(bl.wholesale(p))} (опт от ${p.wholesale_min_qty})`"></p>
             <p x-show="line.available && line.qty >= bl.units(p)" class="mt-1 text-[0.6875rem] text-status-confirmed" x-text="`В корзине весь остаток — ${bl.units(p)} ${p.unit}`"></p>
           </div>
 
@@ -77,13 +75,12 @@
       <dl class="mt-4 space-y-2 border-b border-line pb-4 text-sm">
         <div class="flex justify-between"><dt class="font-light text-ink-muted">Товаров</dt><dd x-text="`${$store.cart.count} шт`"></dd></div>
         <div class="flex justify-between"><dt class="font-light text-ink-muted">Позиций</dt><dd x-text="$store.cart.okLines.length"></dd></div>
-        <div x-show="$store.cart.saved" class="flex justify-between text-brand-dark"><dt class="font-light">Выгода по опту</dt><dd x-text="$store.fmt.money($store.cart.saved)"></dd></div>
       </dl>
       <div class="mt-4 flex items-baseline justify-between">
         <span class="text-sm">Сумма</span>
         <span class="font-heading text-[2rem] font-semibold" x-text="$store.fmt.money($store.cart.total)"></span>
       </div>
-      <p class="mt-1 text-[0.6875rem] font-light text-ink-muted">Стоимость доставки сообщит менеджер</p>
+      <p class="mt-1 text-[0.6875rem] font-light text-ink-muted">Без доставки: по Астане 1 200 ₸, межгород 2 500 ₸, самовывоз бесплатно</p>
       <a href="/checkout.html" class="btn-primary mt-6 w-full" x-show="!$store.cart.blocked">Оформить заказ</a>
       <button type="button" class="btn-primary mt-6 w-full" disabled x-show="$store.cart.blocked" x-cloak>Оформить заказ</button>
       <button type="button" class="mt-3 w-full text-center text-xs font-light text-ink-muted underline underline-offset-4 hover:text-ink"

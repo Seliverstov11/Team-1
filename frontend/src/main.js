@@ -1,12 +1,13 @@
 import Alpine from 'alpinejs'
-import { api } from './api.js'
+import { api, onUnauthorized, session } from './api.js'
 import {
-  available, availableUnits, buildCards, buildSections, defaultVariant, groupById, groupOfCategory,
-  hasWholesale, inStock, lineSum, retail, unitPrice, variantLabel, wholesale, wholesaleMin,
+  available, availableUnits, basePrice, buildCards, buildSections, defaultVariant, deliveryCost, groupById, groupOfCategory,
+  inStock, isPersonal, lineSum, retail, variantLabel,
 } from './catalog.js'
-import { formatQty, formatTiyn, milli, qtyToString, tiyn } from './money.js'
-import { CHANNELS, DELIVERY, FLOW, PAYMENT, STATUSES, paymentKey } from './orders.js'
-import { fmt, formatPhone, isPhone, persisted, phoneDigits, save } from './util.js'
+import { formatQty, formatTiyn, milli, qtyToString, tiyn, tiynToString } from './money.js'
+import { DELIVERY, FLOW, PAYMENT, STATUSES, paymentKey } from './orders.js'
+import { fmt, formatPhone, isPhone, persisted, save } from './util.js'
+import { passwordProblems, passwordStrength } from './password.js'
 
 const params = new URLSearchParams(location.search)
 
@@ -18,10 +19,11 @@ const CART_KEY = 'bakeloom.cart.v2'      // { id фасовки: количес�
 const DATA_KEY = 'bakeloom.catalog.v2'   // кэш каталога на время сессии
 const MENU_KEY = 'bakeloom.menu'
 const FAV_KEY = 'bakeloom.favorites.v2'  // { id карточки (group_id): true }
-const ME_KEY = 'bakeloom.me'             // демо-профиль: { name, phone, email, address }
+const ME_KEY = 'bakeloom.me.v2'          // профиль из /api/me + адрес доставки по умолчанию (только в браузере)
+const LOCK_KEY = 'bakeloom.login.lock'   // { fails, until } — пауза после 5 неудачных входов
 
-// Старые ключи демо-базы в localStorage больше не нужны: данные — в backend
-;['bakeloom.cart', 'bakeloom.favorites', 'bakeloom.db.v1', 'bakeloom.session'].forEach(k => localStorage.removeItem(k))
+// Старые ключи демо-версий больше не нужны: данные — в backend, вход — по паролю
+;['bakeloom.cart', 'bakeloom.favorites', 'bakeloom.db.v1', 'bakeloom.session', 'bakeloom.me'].forEach(k => { try { localStorage.removeItem(k) } catch { /* приватный режим */ } })
 
 // ---------------------------------------------------------------- хранилища
 document.addEventListener('alpine:init', () => {
@@ -68,7 +70,9 @@ document.addEventListener('alpine:init', () => {
 
   // Каталог из API. Кэшируется в sessionStorage: при переходе между страницами
   // показывается сразу, свежие остатки подгружаются в фоне.
-  const cached = fromSession(DATA_KEY)
+  // Кэш привязан к покупателю: у вошедшего могут быть свои цены
+  const viewer = () => session.get()?.user?.id ?? 'guest'
+  const cached = fromSession(DATA_KEY)?.viewer === viewer() ? fromSession(DATA_KEY) : null
   const index = (categories, products) => ({
     categories,
     products,
@@ -85,7 +89,7 @@ document.addEventListener('alpine:init', () => {
         const [categories, products] = await Promise.all([api.categories(), api.products()])
         Object.assign(this, index(categories, products))
         this.error = null
-        try { sessionStorage.setItem(DATA_KEY, JSON.stringify({ categories, products })) } catch { /* переполнение — не страшно */ }
+        try { sessionStorage.setItem(DATA_KEY, JSON.stringify({ viewer: viewer(), categories, products })) } catch { /* переполнение — не страшно */ }
         Alpine.store('cart').reconcile()
       } catch (e) {
         console.error(e)
@@ -113,7 +117,7 @@ document.addEventListener('alpine:init', () => {
   })
 
   // Корзина: { id фасовки: количество }, живёт в localStorage.
-  // Цена строки — розница или опт (от wholesale_min_qty единиц), как на backend.
+  // Цена строки — общая или персональная вошедшего покупателя; итог всё равно считает сервер.
   Alpine.store('cart', {
     items: persisted(CART_KEY, {}),
     adjusted: [],
@@ -158,18 +162,14 @@ document.addEventListener('alpine:init', () => {
         .map(l => ({
           ...l,
           available: inStock(l.product),
-          price: unitPrice(l.product, l.qty),
+          price: retail(l.product),
           sum: lineSum(l.product, l.qty),
-          wholesale: hasWholesale(l.product) && l.qty >= wholesaleMin(l.product),
-          toWholesale: hasWholesale(l.product) ? Math.max(0, wholesaleMin(l.product) - l.qty) : 0,
-          saved: hasWholesale(l.product) && l.qty >= wholesaleMin(l.product) ? (retail(l.product) - wholesale(l.product)) * l.qty : 0,
         }))
     },
     get okLines() { return this.lines.filter(l => l.available) },
     get blocked() { return this.lines.some(l => !l.available) },
     get count() { return this.okLines.reduce((s, l) => s + l.qty, 0) },
     get total() { return this.okLines.reduce((s, l) => s + l.sum, 0) }, // тиыны
-    get saved() { return this.okLines.reduce((s, l) => s + l.saved, 0) },
   })
 
   // Избранное — по карточке (группе фасовок)
@@ -184,30 +184,59 @@ document.addEventListener('alpine:init', () => {
     get count() { return Object.keys(this.ids).length },
   })
 
-  // Профиль клиента — демо: вход по телефону без пароля. Заказы берутся из backend
-  // по номеру телефона (эндпоинты пока открыты, авторизации нет).
+  // Покупатель: вход по телефону и паролю (/api/auth/client/login), профиль — /api/me.
+  // Адрес доставки по умолчанию сервер не хранит — он остаётся в браузере.
+  const storedMe = () => (session.get()?.kind === 'client' ? persisted(ME_KEY, null) : null)
   Alpine.store('account', {
-    me: persisted(ME_KEY, null),
-    login({ name, phone }) {
-      this.me = { name: name.trim(), phone: formatPhone(phone), email: '', address: '', ...(this.me?.phone === formatPhone(phone) ? this.me : {}) }
+    me: storedMe(),
+    async refresh() {
+      if (session.get()?.kind !== 'client') { this.forget(); return }
+      try {
+        const profile = await api.me()
+        this.me = { ...profile, phone: formatPhone(profile.phone), address: this.me?.address ?? '' }
+        save(ME_KEY, this.me)
+      } catch (e) {
+        if (e.status === 401) this.forget()
+      }
+    },
+    async signedIn() {
+      try { sessionStorage.removeItem(DATA_KEY) } catch { /* приватный режим */ }
+      await this.refresh()
+      Alpine.store('shop').load() // персональные цены
+    },
+    async login(phone, password) {
+      await api.clientLogin(formatPhone(phone), password)
+      await this.signedIn()
+    },
+    async register(body) {
+      await api.clientRegister(body)
+      await this.signedIn()
+    },
+    async update(patch) {
+      const { address, ...server } = patch
+      if (Object.keys(server).length) Object.assign(this.me, await api.updateMe(server), { phone: this.me.phone })
+      if (address !== undefined) this.me.address = address
       save(ME_KEY, this.me)
     },
-    update(patch) {
-      this.me = { ...this.me, ...patch }
-      save(ME_KEY, this.me)
-    },
-    logout() {
+    forget() {
       this.me = null
-      localStorage.removeItem(ME_KEY)
+      try { localStorage.removeItem(ME_KEY) } catch { /* приватный режим */ }
+    },
+    async logout() {
+      await api.logout()
+      this.forget()
+      try { sessionStorage.removeItem(DATA_KEY) } catch { /* приватный режим */ }
+      Alpine.store('shop').load()
     },
   })
+  onUnauthorized(() => Alpine.store('account').forget())
 
   Alpine.store('search', { q: params.get('q') ?? '' })
 
   window.addEventListener('storage', e => {
     if (e.key === CART_KEY) Alpine.store('cart').items = persisted(CART_KEY, {})
     if (e.key === FAV_KEY) Alpine.store('fav').ids = persisted(FAV_KEY, {})
-    if (e.key === ME_KEY) Alpine.store('account').me = persisted(ME_KEY, null)
+    if (e.key === ME_KEY) Alpine.store('account').me = storedMe()
   })
 
   // ---------------------------------------------------------------- карточка в сетке
@@ -312,12 +341,25 @@ document.addEventListener('alpine:init', () => {
   }))
 
   // ---------------------------------------------------------------- профиль
+  // Вход и регистрация по телефону и паролю. Гость отслеживает заказ по номеру и телефону.
   Alpine.data('accountPage', () => ({
     tab: params.get('tab') ?? 'orders',
-    login: { name: '', phone: '' },
-    loginErrors: {},
-    profile: { name: '', phone: '', email: '', address: '' },
+    mode: params.get('mode') === 'register' ? 'register' : params.get('order_no') ? 'track' : 'login',
+    login: { phone: '', password: '' },
+    reg: { name: '', phone: '', city: '', password: '', confirm: '' },
+    showPassword: false,
+    caps: false,
+    authErrors: {},
+    authError: null,
+    authBusy: false,
+    lock: persisted(LOCK_KEY, { fails: 0, until: 0 }),
+    now: Date.now(),
+    track: { order_no: params.get('order_no') ?? '', phone: formatPhone(params.get('phone') ?? '') },
+    tracked: null,
+    trackError: null,
+    profile: { name: '', city: '', address: '' },
     profileErrors: {},
+    profileError: null,
     savedAt: 0,
     orders: [],
     details: {},       // id заказа → состав (GET /api/orders/{id})
@@ -329,16 +371,17 @@ document.addEventListener('alpine:init', () => {
     delivery: DELIVERY,
     flow: FLOW,
     notice: null,
-    confirmCancel: null,
 
     init() {
       const fill = () => {
         const me = this.$store.account.me
-        if (me) this.profile = { name: me.name, phone: me.phone, email: me.email ?? '', address: me.address ?? '' }
-        if (me) this.loadOrders()
+        if (!me) return
+        this.profile = { name: me.name ?? '', city: me.city ?? '', address: me.address ?? '' }
+        this.loadOrders()
       }
       fill()
-      this.$watch('$store.account.me?.phone', fill)
+      this.$watch('$store.account.me?.id', fill)
+      this.$store.account.refresh()
       this.$watch('tab', tab => {
         const url = new URL(location.href)
         tab === 'orders' ? url.searchParams.delete('tab') : url.searchParams.set('tab', tab)
@@ -346,16 +389,81 @@ document.addEventListener('alpine:init', () => {
       })
       this.$watch('open', id => id && this.loadDetail(id))
       if (this.open) this.loadDetail(this.open)
+      if (this.track.order_no && this.track.phone) this.submitTrack()
+      setInterval(() => (this.now = Date.now()), 1000)
+    },
+
+    // ---- вход: после 5 неудачных попыток — пауза 5 минут (сервер проверяет пароль, пауза — защита от перебора с этой страницы)
+    get lockLeft() { return Math.max(0, Math.ceil((this.lock.until - this.now) / 1000)) },
+    capsCheck(e) { this.caps = e.getModifierState?.('CapsLock') ?? false },
+    async submitLogin() {
+      const e = {}
+      if (!isPhone(this.login.phone)) e.phone = 'Номер в формате +7 (7XX) XXX-XX-XX'
+      if (!this.login.password) e.password = 'Введите пароль'
+      this.authErrors = e
+      this.authError = null
+      if (Object.keys(e).length || this.lockLeft) return
+      this.authBusy = true
+      try {
+        await this.$store.account.login(this.login.phone, this.login.password)
+        this.lock = { fails: 0, until: 0 }
+        this.login.password = ''
+      } catch (err) {
+        if (err.status === 401) {
+          const fails = this.lock.fails + 1
+          this.lock = fails >= 5 ? { fails: 0, until: Date.now() + 5 * 60_000 } : { fails, until: 0 }
+          this.authError = fails >= 5 ? 'Слишком много попыток. Попробуйте через 5 минут' : `Неверный телефон или пароль. Осталось попыток: ${5 - fails}`
+        } else this.authError = err.message
+      } finally {
+        save(LOCK_KEY, this.lock)
+        this.authBusy = false
+      }
+    },
+
+    // ---- регистрация
+    get strength() { return passwordStrength(this.reg.password) },
+    get problems() { return passwordProblems(this.reg.password) },
+    async submitRegister() {
+      const e = {}
+      if (this.reg.name.trim().length < 2) e.name = 'Укажите имя'
+      if (!isPhone(this.reg.phone)) e.phone = 'Номер в формате +7 (7XX) XXX-XX-XX'
+      if (this.problems.length) e.password = `Пароль: ${this.problems.join(', ')}`
+      if (this.reg.password !== this.reg.confirm) e.confirm = 'Пароли не совпадают'
+      this.authErrors = e
+      this.authError = null
+      if (Object.keys(e).length) return
+      this.authBusy = true
+      try {
+        await this.$store.account.register({
+          name: this.reg.name.trim(),
+          phone: formatPhone(this.reg.phone),
+          password: this.reg.password,
+          city: this.reg.city.trim() || null,
+        })
+        this.reg.password = this.reg.confirm = ''
+      } catch (err) {
+        this.authError = err.message
+      } finally {
+        this.authBusy = false
+      }
+    },
+
+    // ---- отслеживание без входа: номер заказа + телефон (ФТ-ЛК-03)
+    async submitTrack() {
+      this.trackError = null
+      this.tracked = null
+      if (!this.track.order_no.trim() || !isPhone(this.track.phone)) { this.trackError = 'Укажите номер заказа и телефон, на который он оформлен'; return }
+      try {
+        this.tracked = await api.track(this.track.order_no.trim(), formatPhone(this.track.phone))
+      } catch (err) {
+        this.trackError = err.status === 404 ? 'Заказ с таким номером и телефоном не найден' : err.message
+      }
     },
 
     async loadOrders() {
-      const me = this.$store.account.me
-      if (!me) return
       this.loading = true
       try {
-        const all = await api.allOrders()
-        const digits = phoneDigits(me.phone)
-        this.orders = all.filter(o => phoneDigits(o.client_phone) === digits)
+        this.orders = await api.myOrders()
         this.error = null
       } catch (e) {
         this.error = e.message
@@ -368,23 +476,19 @@ document.addEventListener('alpine:init', () => {
       try { this.details[id] = await api.order(id) } catch (e) { this.notice = { id, text: e.message } }
     },
 
-    submitLogin() {
-      const e = {}
-      if (this.login.name.trim().length < 2) e.name = 'Укажите имя'
-      if (!isPhone(this.login.phone)) e.phone = 'Номер в формате +7 (7XX) XXX-XX-XX'
-      this.loginErrors = e
-      if (Object.keys(e).length) return
-      this.$store.account.login(this.login)
-    },
-    saveProfile() {
+    async saveProfile() {
       const e = {}
       if (this.profile.name.trim().length < 2) e.name = 'Укажите имя'
-      if (this.profile.email && !/^\S+@\S+\.\S+$/.test(this.profile.email)) e.email = 'Проверьте адрес почты'
       this.profileErrors = e
+      this.profileError = null
       if (Object.keys(e).length) return
-      this.$store.account.update({ name: this.profile.name.trim(), email: this.profile.email.trim(), address: this.profile.address.trim() })
-      this.savedAt = Date.now()
-      setTimeout(() => (this.savedAt = 0), 2500)
+      try {
+        await this.$store.account.update({ name: this.profile.name.trim(), city: this.profile.city.trim(), address: this.profile.address.trim() })
+        this.savedAt = Date.now()
+        setTimeout(() => (this.savedAt = 0), 2500)
+      } catch (err) {
+        this.profileError = err.message
+      }
     },
 
     get stats() {
@@ -395,7 +499,6 @@ document.addEventListener('alpine:init', () => {
         active: ok.filter(o => !['completed', 'delivered'].includes(o.status)).length,
       }
     },
-    step(o) { return FLOW.indexOf(o.status) },
     // Путь клиента: самовывоз заканчивается выдачей, доставка — получением
     flowFor(o) { return o.delivery_method === 'pickup' ? ['new', 'confirmed', 'assembled', 'handed_over', 'completed'] : FLOW },
     stepIn(o) { return this.flowFor(o).indexOf(o.status) },
@@ -415,19 +518,6 @@ document.addEventListener('alpine:init', () => {
       if (added) location.href = '/cart.html'
       else this.notice = { id: o.id, text: 'Товаров из этого заказа сейчас нет в наличии' }
     },
-    // Клиент сам отменяет только новый неоплаченный заказ — дальше через менеджера
-    async cancel(o) {
-      if (o.status !== 'new' || o.payment_status === 'paid') return
-      if (this.confirmCancel !== o.id) { this.confirmCancel = o.id; return }
-      this.confirmCancel = null
-      try {
-        const updated = await api.updateOrder(o.id, { status: 'cancelled', cancelled_reason: 'клиент отменил в профиле на сайте' })
-        Object.assign(o, updated)
-        this.$store.shop.load()
-      } catch (e) {
-        this.notice = { id: o.id, text: e.message }
-      }
-    },
   }))
 
   // ---------------------------------------------------------------- оформление
@@ -445,8 +535,11 @@ document.addEventListener('alpine:init', () => {
       if (!me) return
       this.form.name ||= me.name
       this.form.phone ||= me.phone
+      if (me.city) this.form.city = me.city
       if (me.address && !this.form.address) this.form.address = me.address
     },
+    // Астана — 1 200 ₸, межгород — 2 500 ₸ (ТЗ), самовывоз — бесплатно
+    get deliveryTiyn() { return deliveryCost(this.form.delivery_method, this.form.city) },
 
     validate() {
       const e = {}
@@ -471,19 +564,17 @@ document.addEventListener('alpine:init', () => {
         const order = await api.createOrder({
           client_name: this.form.name.trim(),
           client_phone: formatPhone(this.form.phone),
-          source: 'site',
-          channel: 'site',
           city: this.form.city.trim() || null,
           delivery_method: this.form.delivery_method,
           delivery_address: this.form.delivery_method === 'pickup' ? null : this.form.address.trim(),
+          delivery: this.form.delivery_method === 'pickup' ? null : tiynToString(this.deliveryTiyn),
           note: this.form.comment.trim() || null,
           items: lines.map(l => ({ product_id: l.product.id, quantity: qtyToString(l.qty) })),
         })
         // Суммы корзины и backend считаются одинаково — расхождение означает, что цены поменялись
         const mismatch = tiyn(order.items_total) !== expected
         if (mismatch) console.warn('Сумма заказа отличается от корзины', { cart: expected, backend: order.items_total })
-        this.done = { order, mismatch, channel: CHANNELS[order.channel] }
-        if (!this.$store.account.me) this.$store.account.login({ name: this.form.name, phone: this.form.phone })
+        this.done = { order, mismatch, phone: formatPhone(this.form.phone) }
         cart.clear()
         this.$store.shop.load()
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -511,9 +602,8 @@ window.bl = {
   units: availableUnits,
   available,
   retail,
-  wholesale,
-  hasWholesale,
-  wholesaleMin,
+  basePrice,
+  isPersonal,
   groupMedia: categoryId => groupOfCategory(categoryId).media,
   section: id => groupById(id),
 }
@@ -521,3 +611,13 @@ window.bl = {
 window.Alpine = Alpine
 Alpine.start()
 Alpine.store('shop').load()
+
+// Просмотр страницы — для аналитики владельца (устройство и браузер сервер берёт из User-Agent, IP не хранит)
+const tabId = (() => {
+  try {
+    let id = sessionStorage.getItem('bakeloom.tab')
+    if (!id) sessionStorage.setItem('bakeloom.tab', (id = crypto.randomUUID()))
+    return id
+  } catch { return undefined }
+})()
+api.visit({ path: location.pathname, referrer: document.referrer || undefined, session_id: tabId })

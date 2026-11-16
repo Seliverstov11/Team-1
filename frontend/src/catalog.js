@@ -5,7 +5,9 @@
 //    в данных его нет; категория, которой нет в списке, попадает в «Другое».
 // 2. Часть позиций — фасовки одного товара с общим group_id (шоколад 100 г / 500 г / 1 кг).
 //    Карточка одна, внутри переключатель; у каждой фасовки свои цена, остаток и артикул.
-// 3. Две цены: розница price и опт wholesale_price от wholesale_min_qty единиц в строке.
+// 3. Цена одна для всех (заказчик, В3 27:47): опт выключен, wholesale_price приходит null.
+//    Вошедшему покупателю с договорной ценой сервер отдаёт её в personal_price — показываем её.
+//    Итог заказа всё равно считает сервер.
 
 import { lineTotal, milli, tiyn } from './money.js'
 
@@ -47,14 +49,14 @@ export const available = p => Math.max(0, milli(p?.available_qty)) // в тыс�
 export const availableUnits = p => Math.floor(available(p) / 1000)
 export const inStock = p => available(p) > 0
 
-export const retail = p => tiyn(p.price)
-export const wholesale = p => (p.wholesale_price && p.wholesale_min_qty ? tiyn(p.wholesale_price) : null)
-export const hasWholesale = p => wholesale(p) !== null && wholesale(p) < retail(p)
-export const wholesaleMin = p => Number(p.wholesale_min_qty) || 0
+export const basePrice = p => tiyn(p.price)
+export const retail = p => tiyn(p.personal_price ?? p.price)
+export const isPersonal = p => Boolean(p?.personal_price) && tiyn(p.personal_price) !== tiyn(p.price)
+export const lineSum = (p, qty) => lineTotal(retail(p), qty * 1000)
 
-// Цена единицы при таком количестве в строке: опт — когда количество дотянуло до порога
-export const unitPrice = (p, qty) => (hasWholesale(p) && qty >= wholesaleMin(p) ? wholesale(p) : retail(p))
-export const lineSum = (p, qty) => lineTotal(unitPrice(p, qty), qty * 1000)
+// Доставка с сайта: Астана — 1 200 ₸, межгород — 2 500 ₸, самовывоз бесплатно
+export const deliveryCost = (method, city) =>
+  method === 'pickup' ? 0 : /^\s*(астана|нур-султан)\s*$/i.test(city ?? '') ? 120000 : 250000
 
 // Подпись фасовки; у одиночных товаров она дублирует размер из характеристик — тогда не нужна
 export const variantLabel = p => p.variant_name || p.unit

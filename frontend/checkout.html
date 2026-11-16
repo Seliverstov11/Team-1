@@ -24,17 +24,17 @@
       <p class="mt-4 text-sm font-light text-ink-muted">Номер заказа</p>
       <p class="mt-1 font-heading text-[2rem] font-semibold" x-text="`№ ${done.order.order_no}`"></p>
       <p class="mx-auto mt-4 max-w-[30rem] text-[0.8125rem] font-light leading-relaxed text-ink-muted">
-        Менеджер свяжется с вами, подтвердит состав и назовёт стоимость доставки. Оплата — при получении
+        Менеджер свяжется с вами и подтвердит состав и доставку. Оплата — при получении
         или по QR Kaspi после подтверждения, онлайн-оплаты на сайте нет.
       </p>
       <dl class="mx-auto mt-6 max-w-[22rem] space-y-1.5 text-left text-sm">
         <div class="flex justify-between"><dt class="font-light text-ink-muted">Товары</dt><dd x-text="$store.fmt.money($store.fmt.tiyn(done.order.items_total))"></dd></div>
-        <div class="flex justify-between"><dt class="font-light text-ink-muted">Доставка</dt><dd x-text="done.order.delivery_method === 'pickup' ? 'самовывоз' : 'сообщит менеджер'"></dd></div>
+        <div class="flex justify-between"><dt class="font-light text-ink-muted">Доставка</dt><dd x-text="done.order.delivery_method === 'pickup' ? 'самовывоз' : $store.fmt.money($store.fmt.tiyn(done.order.delivery))"></dd></div>
         <div class="flex justify-between border-t border-line pt-1.5"><dt>Итого</dt><dd class="font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(done.order.total))"></dd></div>
       </dl>
       <p x-show="done.mismatch" class="mx-auto mt-3 max-w-[30rem] text-xs text-status-confirmed">Пока вы оформляли заказ, цена изменилась — выше актуальная сумма от магазина.</p>
       <div class="mt-8 flex flex-wrap justify-center gap-3">
-        <a href="/account.html" class="btn-primary">Следить за заказом</a>
+        <a :href="$store.account.me ? `/account.html?order=${done.order.id}` : `/account.html?order_no=${done.order.order_no}&phone=${encodeURIComponent(done.phone)}`" class="btn-primary">Следить за заказом</a>
         <a href="/catalog.html" class="btn-outline">Вернуться в каталог</a>
       </div>
     </section>
@@ -60,7 +60,7 @@
             class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,24rem)]">
         <div class="card flex flex-col gap-6 p-5 sm:p-8">
           <p x-show="!$store.account.me" class="-mb-2 rounded-xl bg-brand-gold-soft/60 px-4 py-3 text-xs font-light text-ink-muted">
-            Уже заказывали? <a href="/account.html" class="text-ink underline underline-offset-4 hover:text-brand-gold">Войдите в профиль</a> — данные подставятся сами, а статус заказа будет виден по номеру телефона.
+            Уже заказывали? <a href="/account.html" class="text-ink underline underline-offset-4 hover:text-brand-gold">Войдите в профиль</a> — данные подставятся сами, а если у вас договорные цены, они применятся к заказу.
           </p>
           <fieldset class="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <legend class="eyebrow mb-5 sm:col-span-2">Контактные данные</legend>
@@ -121,17 +121,21 @@
               <li class="flex justify-between gap-4 text-[0.8125rem]">
                 <span class="min-w-0">
                   <span class="block" x-text="bl.fullName(line.product)"></span>
-                  <span class="text-xs font-light text-ink-muted" x-text="`${line.qty} × ${$store.fmt.money(line.price)}${line.wholesale ? ' · опт' : ''}`"></span>
+                  <span class="text-xs font-light text-ink-muted" x-text="`${line.qty} × ${$store.fmt.money(line.price)}`"></span>
                 </span>
                 <span class="shrink-0" x-text="$store.fmt.money(line.sum)"></span>
               </li>
             </template>
           </ul>
-          <div class="mt-4 flex items-baseline justify-between">
-            <span class="text-sm">Товары</span>
-            <span class="font-heading text-[2rem] font-semibold" x-text="$store.fmt.money($store.cart.total)"></span>
+          <dl class="mt-4 space-y-1.5 text-sm">
+            <div class="flex justify-between"><dt class="font-light text-ink-muted">Товары</dt><dd x-text="$store.fmt.money($store.cart.total)"></dd></div>
+            <div class="flex justify-between"><dt class="font-light text-ink-muted">Доставка</dt><dd x-text="form.delivery_method === 'pickup' ? 'самовывоз' : $store.fmt.money(deliveryTiyn)"></dd></div>
+          </dl>
+          <div class="mt-3 flex items-baseline justify-between border-t border-line pt-3">
+            <span class="text-sm">Итого</span>
+            <span class="font-heading text-[2rem] font-semibold" x-text="$store.fmt.money($store.cart.total + deliveryTiyn)"></span>
           </div>
-          <p class="mt-1 text-[0.6875rem] font-light text-ink-muted" x-text="form.delivery_method === 'pickup' ? 'Самовывоз — без доставки' : 'Без учёта доставки — её стоимость сообщит менеджер'"></p>
+          <p class="mt-1 text-[0.6875rem] font-light text-ink-muted" x-text="form.delivery_method === 'pickup' ? 'Самовывоз — без доставки' : 'По Астане 1 200 ₸, в другие города 2 500 ₸'"></p>
           <p x-show="serverError" x-cloak role="alert" class="mt-4 rounded-xl bg-error-soft px-4 py-3 text-xs text-error" x-text="serverError"></p>
           <button type="submit" class="btn-primary mt-6 w-full" :disabled="sending || $store.cart.blocked" x-text="sending ? 'Оформляем…' : 'Оформить'">Оформить</button>
           <p x-show="touched && Object.keys(errors).length" x-cloak class="mt-3 text-center text-xs text-error">Проверьте выделенные поля</p>

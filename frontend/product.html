@@ -53,12 +53,12 @@
           </div>
 
           <p class="mt-8 font-heading text-[2.5rem] font-semibold leading-none" x-text="$store.fmt.money(bl.retail(p))"></p>
-          <p class="mt-1 text-xs font-light text-ink-muted" x-text="`за 1 ${p.unit} · розница`"></p>
-          <!-- Опт — второй прайс от N единиц в строке, не скидка и не промокод -->
-          <p x-show="bl.hasWholesale(p)" class="mt-3 w-fit rounded-control bg-brand-gold-soft px-3 py-2 text-[0.8125rem]">
-            Оптом от <span class="font-medium" x-text="`${p.wholesale_min_qty} ${p.unit}`"></span> —
-            <span class="font-semibold" x-text="$store.fmt.money(bl.wholesale(p))"></span> за <span x-text="p.unit"></span>
+          <p class="mt-1 text-xs font-light text-ink-muted" x-text="`за 1 ${p.unit}`"></p>
+          <!-- Договорная цена — только вошедшему покупателю, её отдаёт сервер в personal_price -->
+          <p x-show="bl.isPersonal(p)" class="mt-3 w-fit rounded-control bg-brand-gold-soft px-3 py-2 text-[0.8125rem]">
+            Ваша цена по договорённости · на сайте <span class="line-through" x-text="$store.fmt.money(bl.basePrice(p))"></span>
           </p>
+          <p x-show="p.description" class="mt-5 max-w-[34rem] text-[0.8125rem] font-light leading-relaxed text-ink-muted" x-text="p.description"></p>
 
           <dl class="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 border-y border-line py-5 text-sm sm:mt-8 sm:gap-x-8">
             <dt class="font-light text-ink-muted">Наличие</dt>
@@ -70,8 +70,6 @@
 
           <div class="mt-6 grid gap-1 sm:mt-8 sm:max-w-[22rem]">
             <!-- @include buy-box.html -->
-            <p x-show="bl.hasWholesale(p) && bl.inStock(p) && $store.cart.qty(p.id) && $store.cart.qty(p.id) < p.wholesale_min_qty" x-cloak class="mt-2 text-[0.75rem] text-ink-muted"
-               x-text="`До оптовой цены — ещё ${p.wholesale_min_qty - $store.cart.qty(p.id)} ${p.unit}`"></p>
           </div>
           <div class="mt-4 flex items-center gap-3 text-[0.8125rem] font-light">
             <!-- @include fav-button.html -->
@@ -82,7 +80,7 @@
         </div>
       </section>
 
-      <!-- Характеристики — из attributes: у каждого товара свой набор. Длинного описания нет -->
+      <!-- Характеристики — из attributes: у каждого товара свой набор (ФТ-Т-03, ФТ-Т-04) -->
       <section x-show="p.attributes?.length" class="card px-5 py-6 sm:px-8 sm:py-7">
         <h2 class="font-heading text-[1.75rem] font-medium">Характеристики</h2>
         <dl class="mt-4 grid max-w-[48rem] grid-cols-1 text-sm sm:grid-cols-[minmax(10rem,auto)_1fr]">
