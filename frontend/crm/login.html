@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Вход — Bakeloom CRM</title>
+</head>
+<body data-page="login" class="bg-crm-sidebar">
+<main x-data="crmLogin" class="grid min-h-dvh place-items-center px-4 py-10">
+  <form class="w-full max-w-[24rem] rounded-card bg-surface p-6 shadow-lift sm:p-8" novalidate @submit.prevent="submit()">
+    <div class="flex items-center gap-3">
+      <img src="/img/logo.svg" alt="" class="h-11 w-auto" />
+      <span>
+        <span class="block font-heading text-2xl leading-none">Bakeloom</span>
+        <span class="caps mt-1 block text-[0.5625rem] tracking-[0.2em] text-brand-gold">CRM · вход для сотрудников</span>
+      </span>
+    </div>
+
+    <label class="mt-8 flex flex-col gap-1.5">
+      <span class="crm-label">Логин</span>
+      <input type="text" x-model="login" autocomplete="username" autocapitalize="none" spellcheck="false" class="crm-field" autofocus />
+    </label>
+    <label class="mt-4 flex flex-col gap-1.5">
+      <span class="crm-label">Пароль</span>
+      <span class="relative">
+        <input :type="show ? 'text' : 'password'" x-model="password" autocomplete="current-password" class="crm-field w-full pr-20"
+               @keyup="capsCheck($event)" @keydown="capsCheck($event)" />
+        <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-[0.6875rem] text-ink-muted hover:text-brand-gold" @click="show = !show" x-text="show ? 'скрыть' : 'показать'"></button>
+      </span>
+      <span x-show="caps" x-cloak class="text-[0.6875rem] text-status-confirmed">Включён Caps Lock</span>
+    </label>
+
+    <p x-show="error" x-cloak role="alert" class="mt-4 rounded-control bg-error-soft px-4 py-3 text-[0.75rem] text-error" x-text="error"></p>
+    <button type="submit" class="btn-primary mt-6 w-full" :disabled="busy || lockLeft > 0"
+            x-text="lockLeft ? `Повторите через ${Math.floor(lockLeft / 60)}:${String(lockLeft % 60).padStart(2, '0')}` : busy ? 'Входим…' : 'Войти'">Войти</button>
+    <p class="mt-4 text-[0.6875rem] leading-snug text-ink-muted">Логин и пароль выдаёт владелец. Забыли пароль — попросите владельца сменить его в разделе сотрудников.</p>
+  </form>
+</main>
+</body>
+</html>

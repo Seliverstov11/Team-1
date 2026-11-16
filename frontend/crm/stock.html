@@ -16,7 +16,7 @@
     </div>
     <div class="flex flex-wrap gap-3">
       <button type="button" class="btn-outline" @click="exportLow()" title="CSV для закупки, открывается в Excel">Закупка → Excel</button>
-      <button type="button" class="btn-primary" @click="openReceipt()">↓ Приход товара</button>
+      <button type="button" x-show="$store.crm.can('stock')" class="btn-primary" @click="openReceipt()">↓ Приход товара</button>
     </div>
   </div>
 
@@ -68,7 +68,7 @@
             <p class="text-[0.75rem]" x-text="`Остаток ${$store.fmt.qty(s.stock_qty)} · резерв ${$store.fmt.qty(s.reserved_qty)} · доступно ${$store.fmt.qty(s.available_qty)} · мин. ${$store.fmt.qty(s.min_stock_qty ?? '0')}`"></p>
             <span class="crm-badge mt-1" :class="level(s).cls" x-text="level(s).label"></span>
           </div>
-          <button type="button" class="btn-outline btn-s shrink-0 px-3" @click="openReceipt(s)" :aria-label="`Приход: ${name(s)}`">+</button>
+          <button type="button" x-show="$store.crm.can('stock')" class="btn-outline btn-s shrink-0 px-3" @click="openReceipt(s)" :aria-label="`Приход: ${name(s)}`">+</button>
         </li>
       </template>
       <li x-show="!list.length" class="px-4 py-12 text-center text-[0.8125rem] text-ink-muted">Товаров не найдено</li>
@@ -95,7 +95,7 @@
             <td class="whitespace-nowrap text-right text-ink-muted" x-text="s.min_stock_qty ? $store.fmt.qty(s.min_stock_qty) : '—'"></td>
             <td x-show="tab === 'low'" class="whitespace-nowrap text-right font-semibold" x-text="`${$store.fmt.qty(shortage(s) / 1000)} ${s.unit}`"></td>
             <td><span class="crm-badge whitespace-nowrap" :class="level(s).cls" x-text="level(s).label"></span></td>
-            <td><button type="button" class="btn-outline btn-s whitespace-nowrap px-3" @click="openReceipt(s)" :aria-label="`Приход: ${name(s)}`" title="Приход товара">+ Приход</button></td>
+            <td><button type="button" x-show="$store.crm.can('stock')" class="btn-outline btn-s whitespace-nowrap px-3" @click="openReceipt(s)" :aria-label="`Приход: ${name(s)}`" title="Приход товара">+ Приход</button></td>
           </tr>
         </template>
         <tr x-show="!list.length"><td colspan="9" class="py-12 text-center text-ink-muted">Товаров не найдено</td></tr>

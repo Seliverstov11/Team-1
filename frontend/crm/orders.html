@@ -37,10 +37,11 @@
       <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.unpaid"></p>
       <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`к получению ${$store.fmt.money(kpi.unpaidSum)}`"></p>
     </button>
-    <div class="crm-kpi border-l-4 border-l-brand-dark">
-      <p class="crm-label">Оплату ставит менеджер</p>
-      <p class="mt-2 text-[0.75rem] leading-snug text-ink-muted">QR Kaspi статический — система о платеже не узнаёт. Отметка только вручную в карточке заказа.</p>
-    </div>
+    <button type="button" class="crm-kpi border-l-4 border-l-status-confirmed text-left transition hover:border-brand-gold" @click="flag = 'problem'; status = ''; pay = ''">
+      <p class="crm-label">Проблемные</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="kpi.problem"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted">нехватка на сборке — поправить состав</p>
+    </button>
   </section>
 
   <!-- Статусы: восемь, как в таблице заказчика -->
@@ -63,7 +64,10 @@
     </select>
     <select x-model="manager" class="crm-field" aria-label="Менеджер">
       <option value="">Менеджер: все</option>
-      <template x-for="m in $store.crm.employees" :key="m.id"><option :value="m.id" x-text="m.name"></option></template>
+      <template x-for="m in $store.crm.assignees" :key="m.id"><option :value="m.id" x-text="m.name"></option></template>
+    </select>
+    <select x-model="flag" class="crm-field" aria-label="Отметки" :class="flag && 'border-brand-gold'">
+      <option value="">Отметки: все</option><option value="urgent" :selected="flag === 'urgent'">Срочные</option><option value="problem" :selected="flag === 'problem'">Проблемные</option>
     </select>
     <button type="button" x-show="hasFilters" class="text-[0.75rem] text-ink-muted underline underline-offset-4 hover:text-ink" @click="reset()">Сбросить</button>
     <span x-show="loading" class="text-[0.75rem] text-ink-muted">Обновляем…</span>
@@ -78,6 +82,9 @@
           <a :href="`/crm/order.html?id=${o.id}`" class="block px-4 py-3.5 transition active:bg-brand-light">
             <div class="flex items-center justify-between gap-3">
               <span class="font-semibold" x-text="`№ ${o.order_no}`"></span>
+              <span x-show="o.is_urgent" class="crm-badge bg-error text-surface">Срочно</span>
+              <span x-show="o.is_problem" class="crm-badge bg-status-confirmed-soft text-status-confirmed">Проблема</span>
+              <span class="flex-1"></span>
               <!-- @include crm-status.html -->
             </div>
             <div class="mt-1.5 flex items-baseline justify-between gap-3">
@@ -109,7 +116,9 @@
             </td>
             <td><span class="whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-[0.6875rem]" x-text="$store.crm.channels[o.channel]"></span></td>
             <td class="hidden whitespace-nowrap text-ink-muted lg:table-cell" x-text="o.city ?? '—'"></td>
-            <td><!-- @include crm-status.html --></td>
+            <td><!-- @include crm-status.html -->
+              <span x-show="o.is_urgent" class="mt-1 block text-[0.625rem] font-semibold uppercase tracking-wider text-error">срочно</span>
+              <span x-show="o.is_problem" class="mt-1 block max-w-[12rem] truncate text-[0.625rem] text-status-confirmed" :title="o.problem_note" x-text="o.problem_note ?? 'проблема'"></span></td>
             <td class="whitespace-nowrap text-right font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(o.total))"></td>
             <td class="whitespace-nowrap">
               <!-- @include crm-pay.html -->
@@ -145,16 +154,16 @@
         <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
           <div>
             <h2 id="new-title" class="crm-h2">Новый заказ</h2>
-            <p class="mt-1 text-[0.75rem] text-ink-muted">Из WhatsApp, Instagram или по телефону. Оплата отмечается потом, в карточке</p>
+            <p class="mt-1 text-[0.75rem] text-ink-muted">Из WhatsApp, Instagram или по телефону. Итог считает сервер, оплата отмечается потом, в карточке</p>
           </div>
           <button type="button" class="text-xl text-ink-muted hover:text-ink" @click="creating = false" aria-label="Закрыть">×</button>
         </div>
         <div class="grid max-h-[65dvh] grid-cols-1 gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2 sm:px-7">
           <label class="flex flex-col gap-1.5">
-            <span class="text-[0.75rem]">Телефон</span>
-            <input type="tel" x-model="form.phone" @input="form.phone = $store.fmt.phone(form.phone); fillKnown()" class="crm-field" :class="errors.phone && 'is-invalid'" placeholder="+7 (7XX) XXX-XX-XX" />
+            <span class="text-[0.75rem]">Телефон *</span>
+            <input type="tel" x-model="form.phone" @input="form.phone = $store.fmt.phone(form.phone)" class="crm-field" :class="errors.phone && 'is-invalid'" placeholder="+7 (7XX) XXX-XX-XX" />
             <span class="field-error" x-show="errors.phone" x-text="errors.phone"></span>
-            <span class="text-[0.6875rem] text-success" x-show="known" x-text="known && `Уже заказывал: ${known.client_name}, № ${known.order_no}`"></span>
+            <span class="text-[0.6875rem] text-success" x-show="client" x-text="client && `Клиент в базе: ${client.name} · заказов ${client.orders_count}${client.personal_prices ? ' · свои цены — посчитает сервер' : ''}`"></span>
           </label>
           <label class="flex flex-col gap-1.5">
             <span class="text-[0.75rem]">Клиент *</span>
@@ -173,11 +182,8 @@
             <span class="text-[0.75rem]">Получение</span>
             <select x-model="form.delivery_method" class="crm-field"><template x-for="[id, label] in Object.entries($store.crm.delivery)" :key="id"><option :value="id" x-text="label" :selected="form.delivery_method === id"></option></template></select>
           </label>
-          <label class="flex flex-col gap-1.5">
-            <span class="text-[0.75rem]">Способ оплаты (не факт оплаты)</span>
-            <select x-model="form.payment_method" class="crm-field">
-              <option value="none">Пока не известен</option><option value="kaspi_transfer">Kaspi (QR / перевод)</option><option value="cash">Наличные</option>
-            </select>
+          <label class="flex items-center gap-2 self-end pb-2 text-[0.8125rem]">
+            <input type="checkbox" x-model="form.urgent" class="accent-brand-dark" /> Срочный — склад соберёт первым
           </label>
           <template x-if="form.delivery_method !== 'pickup'">
             <div class="contents">
@@ -200,7 +206,7 @@
                 <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-[0.8125rem]">
                   <span class="min-w-0 flex-1">
                     <span class="block truncate" x-text="$store.crm.productName($store.crm.product(l.productId))"></span>
-                    <span class="text-[0.6875rem] text-ink-muted" x-text="`своб. ${free(l.productId)} · ${$store.fmt.money(price(l))}${isWholesale(l) ? ' опт' : ''}`"></span>
+                    <span class="text-[0.6875rem] text-ink-muted" x-text="`своб. ${free(l.productId)} · ${$store.fmt.money(price(l))}`"></span>
                   </span>
                   <input type="number" min="1" step="1" x-model.number="l.qty" @change="fixQty(l)" class="crm-field h-8 w-16 px-2 text-center" aria-label="Количество" />
                   <span class="w-24 shrink-0 text-right" x-text="$store.fmt.money(sum(l))"></span>
@@ -213,7 +219,7 @@
               <select x-model="add" @change="addLine()" class="crm-field" :class="errors.lines && 'is-invalid'" aria-label="Добавить товар">
                 <option value="" x-text="`+ Добавить товар (${choices.length}${choices.length === 60 ? '+' : ''})…`"></option>
                 <template x-for="p in choices" :key="p.id">
-                  <option :value="p.id" :disabled="!free(p.id)" x-text="`${$store.crm.productName(p)} — ${$store.fmt.money(bl.retail(p))}${bl.hasWholesale(p) ? ` / опт от ${p.wholesale_min_qty}: ${$store.fmt.money(bl.wholesale(p))}` : ''} · своб. ${free(p.id)}`"></option>
+                  <option :value="p.id" :disabled="!free(p.id)" x-text="`${$store.crm.productName(p)} — ${$store.fmt.money(bl.retail(p))} · своб. ${free(p.id)}`"></option>
                 </template>
               </select>
             </div>
