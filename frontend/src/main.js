@@ -556,7 +556,12 @@ document.addEventListener('alpine:init', () => {
       this.touched = true
       this.serverError = null
       const cart = this.$store.cart
-      if (!this.validate() || !cart.okLines.length || cart.blocked) return
+      if (!this.validate()) {
+        // кнопка заказа на телефоне закреплена внизу — показываем, какое поле исправить (#47)
+        this.$nextTick(() => document.querySelector('form .is-invalid')?.focus())
+        return
+      }
+      if (!cart.okLines.length || cart.blocked) return
       this.sending = true
       const expected = cart.total
       const lines = cart.okLines.map(l => ({ ...l }))

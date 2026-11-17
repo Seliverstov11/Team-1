@@ -136,6 +136,21 @@
 
 /* Шапка: «Избранное» и «Корзина» на своих страницах */
 [data-page="account"] [data-hnav="account"] { @apply bg-brand-gold-soft ring-1 ring-brand-gold-light; }
+
+/* ---------- Нижняя панель на узком экране (#47) ---------- */
+@utility bnav-link {
+  @apply flex min-h-14 flex-col items-center justify-center gap-1 text-[0.625rem] tracking-[0.04em] text-ink-muted transition-colors hover:text-brand-dark;
+}
+[data-page="home"] [data-bnav="home"],
+[data-page="catalog"] [data-bnav="catalog"],
+[data-page="product"] [data-bnav="catalog"],
+[data-page="favorites"] [data-bnav="favorites"],
+[data-page="account"] [data-bnav="account"] { @apply font-semibold text-brand-dark; }
+[data-page="home"] [data-bnav="home"] svg,
+[data-page="catalog"] [data-bnav="catalog"] svg,
+[data-page="product"] [data-bnav="catalog"] svg,
+[data-page="favorites"] [data-bnav="favorites"] svg,
+[data-page="account"] [data-bnav="account"] svg { @apply text-brand-gold; }
 [data-page="favorites"] [data-hnav="favorites"] { @apply bg-brand-gold-soft ring-1 ring-brand-gold-light; }
 :is([data-page="cart"], [data-page="checkout"]) [data-hnav="cart"] { @apply ring-2 ring-brand-gold ring-offset-2 ring-offset-surface; }
 
