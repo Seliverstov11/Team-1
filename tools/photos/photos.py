@@ -3,6 +3,7 @@
 
     python3 tools/photos/photos.py items      # позиции из миграций 001–006 → work/items.json
     python3 tools/photos/photos.py fetch      # кандидаты с Pexels → work/candidates.json + work/raw/
+    python3 tools/photos/photos.py local DIR  # или свои фото заказчика вместо стока (без Pexels)
     python3 tools/photos/photos.py process    # убрать фон, подложка, 800×800 webp → work/out/
     python3 tools/photos/photos.py serve      # страница проверки http://localhost:8765/review.html
     python3 tools/photos/photos.py build      # по selection.json → frontend/public/img/products + миграция
@@ -19,6 +20,7 @@ SELECTION = HERE / 'selection.json'        # файл выбора — резу�
 QUERIES = HERE / 'queries.json'            # поисковые запросы по позициям, правится руками
 OUT_DIR = ROOT / 'frontend' / 'public' / 'img' / 'products'
 MIGRATION = ROOT / 'backend' / 'migrations' / '009_product_images.sql'
+DB_RS = ROOT / 'backend' / 'src' / 'db.rs'                  # список миграций бэкенда (include_str!)
 
 SIZE = 800                                  # итоговый квадрат, px
 FIELD = 0.12                                # поле от края до товара
@@ -219,13 +221,51 @@ def cmd_fetch(args):
           f'без кандидатов: {sum(1 for v in cands.values() if not v)}')
 
 
+# ---------- local: свои фото заказчика вместо стока ----------
+
+def cmd_local(args):
+    """Файлы <артикул>.jpg или <артикул>_2.jpg (несколько вариантов) — кандидаты этой позиции.
+    Подходит и имя из image_name (CHO-D54-100.jpg). Форматы — всё, что открывает Pillow."""
+    from PIL import Image, ImageOps
+    items = load_json(WORK / 'items.json') or sys.exit('Сначала: photos.py items')
+    keys = {}
+    for it in items:
+        keys[it['sku'].lower()] = it['sku']
+        if it['image_name']:
+            keys[Path(it['image_name']).stem.lower()] = it['sku']
+    cands = load_json(WORK / 'candidates.json', {})
+    raw = WORK / 'raw'; raw.mkdir(parents=True, exist_ok=True)
+    got, unknown = {}, []
+    for f in sorted(Path(args.dir).iterdir()):
+        if not f.is_file() or f.name.startswith('.'):
+            continue
+        stem = re.sub(r'[_ ]\d+$', '', f.stem).lower()
+        sku = keys.get(stem)
+        if not sku:
+            unknown.append(f.name); continue
+        try:
+            img = ImageOps.exif_transpose(Image.open(f)).convert('RGB')   # поворот с телефона
+        except Exception as e:
+            print(f'  пропущен {f.name}: {e}'); continue
+        pid = 'own-' + re.sub(r'[^a-z0-9-]+', '-', f.stem.lower()).strip('-')
+        img.save(raw / f'{pid}.jpg', quality=95)
+        got.setdefault(sku, []).append(dict(id=pid, src=None, thumb=None, url=None, alt=f.name,
+                                            photographer='фото заказчика', photographer_url=None))
+    for sku, photos in got.items():
+        cands[sku] = photos            # стоковые кандидаты этой позиции заменяются своими
+    save_json(WORK / 'candidates.json', cands)
+    print(f'своих фото: {sum(map(len, got.values()))} для {len(got)} позиций')
+    if unknown:
+        print(f'не узнал артикул в {len(unknown)} файлах: {", ".join(unknown[:10])}')
+
+
 # ---------- process: единый стиль ----------
 
 def cmd_process(args):
     import numpy as np
     from PIL import Image, ImageFilter
     cands = load_json(WORK / 'candidates.json') or sys.exit('Сначала: photos.py fetch')
-    ids = sorted({p['id'] for v in cands.values() for p in v})
+    ids = sorted({str(p['id']) for v in cands.values() for p in v})
     out = WORK / 'out'; out.mkdir(parents=True, exist_ok=True)
     todo = [i for i in ids if args.refresh or not (out / f'{i}.webp').exists()]
     print(f'обработать: {len(todo)} из {len(ids)}')
@@ -359,7 +399,7 @@ def cmd_build(_):
         if not src.exists():
             sys.exit(f'{it["sku"]}: нет обработанного {src} — запустите process')
         shutil.copyfile(src, OUT_DIR / name)
-        p = next((p for p in cands.get(it['sku'], []) if p['id'] == pid), None) or s.get('source', {})
+        p = next((p for p in cands.get(it['sku'], []) if str(p['id']) == str(pid)), None) or {}
         credits[name] = {'pexels': p.get('url'), 'photographer': p.get('photographer')}
         sku = it['sku'].replace("'", "''")
         lines.append(f"UPDATE products SET image_url = '/img/products/{name}' WHERE sku = '{sku}';")
@@ -370,9 +410,25 @@ def cmd_build(_):
         '-- Фото — Pexels (бесплатная лицензия, авторы в frontend/public/img/products/CREDITS.json).\n\n'
         + '\n'.join(lines) + '\n', 'utf8')
     save_json(OUT_DIR / 'CREDITS.json', credits)
+    register_migration()
     print(f'фото: {len(lines)}, без фото: {len(no_photo)} → {OUT_DIR.relative_to(ROOT)}, {MIGRATION.relative_to(ROOT)}')
     for it in no_photo:
         print(f'  нет фото: {it["sku"]} — {it["name"]} {it["variant"] or ""} ({it["category"]})')
+
+
+def register_migration():
+    """Бэкенд встраивает миграции в бинарник списком в db.rs — добавляем 009 один раз."""
+    src = DB_RS.read_text('utf8')
+    name = MIGRATION.stem
+    if f'"{name}"' in src:
+        return
+    anchor = '];\n\nasync fn migrate'
+    if anchor not in src:
+        print(f'внимание: не нашёл список MIGRATIONS в {DB_RS.relative_to(ROOT)} — добавьте {name} руками')
+        return
+    line = f'    ("{name}", include_str!("../migrations/{MIGRATION.name}")),\n'
+    DB_RS.write_text(src.replace(anchor, line + anchor, 1), 'utf8')
+    print(f'миграция {name} добавлена в {DB_RS.relative_to(ROOT)}')
 
 
 def main():
@@ -382,9 +438,10 @@ def main():
     f = sub.add_parser('fetch'); f.add_argument('--per-query', type=int, default=CANDIDATES); f.add_argument('--refresh', action='store_true')
     p = sub.add_parser('process'); p.add_argument('--model', default='isnet-general-use'); p.add_argument('--refresh', action='store_true')
     s = sub.add_parser('serve'); s.add_argument('--port', type=int, default=8765)
+    l = sub.add_parser('local'); l.add_argument('dir', help='папка с фото: <артикул>.jpg, <артикул>_2.jpg…')
     sub.add_parser('build')
     a = ap.parse_args()
-    {'items': cmd_items, 'fetch': cmd_fetch, 'process': cmd_process, 'serve': cmd_serve, 'build': cmd_build}[a.cmd](a)
+    {'items': cmd_items, 'fetch': cmd_fetch, 'local': cmd_local, 'process': cmd_process, 'serve': cmd_serve, 'build': cmd_build}[a.cmd](a)
 
 
 if __name__ == '__main__':

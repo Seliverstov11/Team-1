@@ -6,8 +6,10 @@
 
 ## Что нужно
 
-- Python 3.11+ и `pip install pillow numpy onnxruntime`
-  (пакет `rembg` не нужен: та же модель `isnet-general-use` запускается напрямую, она скачается сама в `~/.u2net/`, около 170 МБ).
+- Python 3.11+ и `pip install pillow numpy onnxruntime`.
+  Фон убирает модель `isnet-general-use` из rembg — та же, что в `rembg -m isnet-general-use`, но запускается напрямую:
+  пакет `rembg` тянет numba, которая не ставится на свежий Python. Модель скачается сама в `~/.u2net/` (около 170 МБ, один раз).
+  Работает на CPU, около 1,3 с на фото.
 - Ключ Pexels API (бесплатно: <https://www.pexels.com/api/> → «Your API key»).
   Только в переменной окружения или в `tools/photos/.env` — оба в `.gitignore`, в репозиторий не попадают:
 
@@ -24,7 +26,7 @@ python3 tools/photos/photos.py items     # 289 позиций из миграц�
 python3 tools/photos/photos.py fetch     # по 4 кандидата на товар с Pexels → work/raw/
 python3 tools/photos/photos.py process   # фон, подложка, тень → work/out/ (CPU, ~1–2 с на фото)
 python3 tools/photos/photos.py serve     # проверка: http://localhost:8765/review.html
-python3 tools/photos/photos.py build     # frontend/public/img/products/*.webp + backend/migrations/009_product_images.sql
+python3 tools/photos/photos.py build     # frontend/public/img/products/*.webp + backend/migrations/009_product_images.sql (и строка в backend/src/db.rs)
 ```
 
 Все шаги повторяемые: уже скачанное и обработанное берётся из `work/` (флаг `--refresh` — заново).
@@ -45,8 +47,18 @@ python3 tools/photos/photos.py build     # frontend/public/img/products/*.webp +
 
 ## Свои фото заказчика
 
-Положить файлы в `work/raw/<любой id>.jpg`, вписать их в `work/candidates.json` вместо стоковых
-и запустить `process` → `serve` → `build`: обработка та же, шаг `fetch` пропускается.
+Шаг `fetch` (Pexels) пропускается — ключ не нужен:
+
+```bash
+python3 tools/photos/photos.py items
+python3 tools/photos/photos.py local ~/Загрузки/фото-заказчика   # файлы <артикул>.jpg, <артикул>_2.jpg …
+python3 tools/photos/photos.py process && python3 tools/photos/photos.py serve
+python3 tools/photos/photos.py build
+```
+
+Имя файла — артикул (`CHO-D54-100.jpg`) или имя из `image_name`; несколько снимков одного товара — `_2`, `_3`.
+Подходит любой формат, который открывает Pillow; поворот снимка с телефона учитывается.
+Свои фото заменяют стоковых кандидатов только у этих позиций — остальные остаются с Pexels.
 
 ## Лицензия
 

@@ -76,6 +76,7 @@ fetch('/api/data').then(r => r.json()).then(d => {
 
 function state(it) { return sel[it.sku] }
 function flagged(id) { return D.process[id]?.cropped || D.process[id]?.empty }
+const same = (a, b) => a != null && b != null && String(a) === String(b)
 
 function render() {
   const f = $('#filter').value
@@ -109,8 +110,8 @@ function card(it) {
     <div class="main" style="${s.photo ? `background-image:url(${img(s.photo)})` : ''}">${s.photo && flagged(s.photo) ? '<span class="flag">край кадра</span>' : ''}</div>
     <div class="info"><span class="sku">${esc(it.sku)}</span><b>${esc(it.name)}</b>${esc(it.variant || '')}
       <div class="attrs">${esc(attrs)}</div><div class="q">Запрос: ${esc(D.queries[it.sku])}</div></div>
-    <div class="thumbs">${c.map((p, i) => `<button title="${i + 1}: ${esc(p.alt)} — ${esc(p.photographer)}" data-pick="${p.id}" class="${s.photo === p.id ? 'sel' : ''}" style="background-image:url(${img(p.id)})">${flagged(p.id) ? '<span class="flag"></span>' : ''}</button>`).join('') || '<span class="sku">Pexels ничего не нашёл</span>'}
-      ${s.photo ? `<a href="${esc(c.find(p => p.id === s.photo)?.url || '#')}" target="_blank" rel="noopener">оригинал</a>` : ''}</div>
+    <div class="thumbs">${c.map((p, i) => `<button title="${i + 1}: ${esc(p.alt)} — ${esc(p.photographer)}" data-pick="${p.id}" class="${same(s.photo, p.id) ? 'sel' : ''}" style="background-image:url(${img(p.id)})">${flagged(p.id) ? '<span class="flag"></span>' : ''}</button>`).join('') || '<span class="sku">Нет вариантов — запустите fetch или local</span>'}
+      ${(u => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">оригинал</a>` : '')(c.find(p => same(p.id, s.photo))?.url)}</div>
     <div class="actions"><button class="ok ${s.reviewed && s.photo ? 'on' : ''}" data-ok>Подходит</button><button class="no ${s.reviewed && !s.photo ? 'on' : ''}" data-none>Нет фото</button></div>
   </div>`
 }
@@ -131,11 +132,12 @@ function save() {
 }
 
 const bySku = sku => D.items.find(i => i.sku === sku)
+const c = it => D.candidates[it.sku] || []
 document.addEventListener('click', e => {
   const cardEl = e.target.closest('.card'), it = cardEl && bySku(cardEl.dataset.sku)
   if (it) focus = order.indexOf(it)
   const pick = e.target.closest('[data-pick]')
-  if (pick) return setGroup(it, { photo: +pick.dataset.pick, reviewed: true })
+  if (pick) return setGroup(it, { photo: c(it).find(p => same(p.id, pick.dataset.pick))?.id ?? pick.dataset.pick, reviewed: true })
   if (e.target.closest('[data-ok]')) return setGroup(it, { photo: state(it).photo ?? D.candidates[it.sku]?.[0]?.id ?? null, reviewed: true })
   if (e.target.closest('[data-none]')) return setGroup(it, { photo: null, reviewed: true })
   const cat = e.target.closest('[data-cat]')
