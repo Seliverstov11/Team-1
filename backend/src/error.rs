@@ -24,6 +24,9 @@ pub enum ApiError {
     /// Слишком много неудачных попыток входа подряд.
     #[error("{0}")]
     TooManyRequests(String),
+    /// Формат файла не подходит.
+    #[error("{0}")]
+    UnsupportedMedia(String),
     /// Файл больше допустимого.
     #[error("{0}")]
     TooLarge(String),
@@ -48,6 +51,7 @@ impl IntoResponse for ApiError {
             ApiError::Forbidden(m) => (StatusCode::FORBIDDEN, m.clone()),
             ApiError::Conflict(m) => (StatusCode::CONFLICT, m.clone()),
             ApiError::TooManyRequests(m) => (StatusCode::TOO_MANY_REQUESTS, m.clone()),
+            ApiError::UnsupportedMedia(m) => (StatusCode::UNSUPPORTED_MEDIA_TYPE, m.clone()),
             ApiError::TooLarge(m) => (StatusCode::PAYLOAD_TOO_LARGE, m.clone()),
             ApiError::Upstream(m) => {
                 tracing::warn!("внешний сервис: {m}");

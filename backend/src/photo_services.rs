@@ -32,7 +32,10 @@ fn env(name: &str) -> Option<String> {
 fn http() -> &'static reqwest::Client {
     static C: OnceLock<reqwest::Client> = OnceLock::new();
     C.get_or_init(|| {
+        // Без пула соединений: запросы к фото редкие, а соединение, открытое
+        // в одном tokio-runtime, в другом не работает (так устроены тесты).
         reqwest::Client::builder()
+            .pool_max_idle_per_host(0)
             .timeout(Duration::from_secs(30))
             .build()
             .expect("HTTP-клиент")

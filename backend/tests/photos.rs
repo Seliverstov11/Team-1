@@ -159,9 +159,14 @@ impl T {
         assert_eq!(s, StatusCode::OK, "{v}");
         v["token"].as_str().unwrap().to_string()
     }
-    async fn product(&self) -> String {
+    /// Свой товар на каждый тест: подставной Cloudinary записывает загрузки
+    /// по товару, а тесты идут параллельно.
+    async fn product(&self, n: i64) -> String {
         let conn = self.db.connect().unwrap();
-        let mut r = conn.query("SELECT id FROM products WHERE is_archived = 0 ORDER BY id LIMIT 1", ()).await.unwrap();
+        let mut r = conn
+            .query("SELECT id FROM products WHERE is_archived = 0 ORDER BY id LIMIT 1 OFFSET ?1", libsql::params![n])
+            .await
+            .unwrap();
         r.next().await.unwrap().unwrap().get::<String>(0).unwrap()
     }
 }
@@ -204,7 +209,7 @@ async fn варианты_фото_с_pexels_только_владельцу() {
 async fn выбранный_вариант_уходит_в_cloudinary_и_становится_фото_товара() {
     let t = setup().await;
     let owner = t.login("owner").await;
-    let id = t.product().await;
+    let id = t.product(0).await;
     let uri = format!("/api/catalog/products/{id}/photo");
 
     let (s, v) = t.raw(Method::POST, &uri, Some(&owner), "application/json", br#"{"pexels_id": 42}"#.to_vec()).await;
@@ -237,7 +242,7 @@ async fn выбранный_вариант_уходит_в_cloudinary_и_ста�
 async fn своё_фото_файлом_проверка_типа_и_размера() {
     let t = setup().await;
     let owner = t.login("owner").await;
-    let id = t.product().await;
+    let id = t.product(1).await;
     let uri = format!("/api/catalog/products/{id}/photo");
 
     // Тип берётся по содержимому, а не по заголовку
@@ -249,11 +254,11 @@ async fn своё_фото_файлом_проверка_типа_и_разме�
     }
 
     let (s, _) = t.raw(Method::POST, &uri, Some(&owner), "image/png", b"<html>not an image</html>".to_vec()).await;
-    assert_eq!(s, StatusCode::BAD_REQUEST, "не картинка");
+    assert_eq!(s, StatusCode::UNSUPPORTED_MEDIA_TYPE, "не картинка");
     let (s, _) = t.raw(Method::POST, &uri, Some(&owner), "image/png", vec![]).await;
     assert_eq!(s, StatusCode::BAD_REQUEST, "пустой файл");
     let (s, _) = t.raw(Method::POST, &uri, Some(&owner), "text/plain", PNG.to_vec()).await;
-    assert_eq!(s, StatusCode::BAD_REQUEST, "не тот Content-Type");
+    assert_eq!(s, StatusCode::UNSUPPORTED_MEDIA_TYPE, "не тот Content-Type");
 
     let mut big = PNG.to_vec();
     big.resize(10 * 1024 * 1024 + 1, 0);
@@ -265,4 +270,56 @@ async fn своё_фото_файлом_проверка_типа_и_разме�
         let (s, _) = t.raw(Method::POST, &uri, Some(&tok), "image/png", PNG.to_vec()).await;
         assert_eq!(s, StatusCode::FORBIDDEN, "{who}");
     }
+}
+
+/// Тело multipart/form-data, как его собирает браузер из FormData.
+fn form(field: &str, value: &[u8], file: bool) -> (String, Vec<u8>) {
+    let b = "----bakeloom-test-boundary";
+    let mut body = format!("--{b}\r\n").into_bytes();
+    if file {
+        body.extend(format!("Content-Disposition: form-data; name=\"{field}\"; filename=\"photo.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").bytes());
+    } else {
+        body.extend(format!("Content-Disposition: form-data; name=\"{field}\"\r\n\r\n").bytes());
+    }
+    body.extend_from_slice(value);
+    body.extend(format!("\r\n--{b}--\r\n").bytes());
+    (format!("multipart/form-data; boundary={b}"), body)
+}
+
+#[tokio::test]
+async fn форма_из_crm_файл_или_pexels_id() {
+    let t = setup().await;
+    let owner = t.login("owner").await;
+    let id = t.product(2).await;
+    let uri = format!("/api/catalog/products/{id}/photo");
+    let key = format!("bakeloom/products/{id}");
+
+    let (ct, body) = form("pexels_id", b"77", false);
+    let (s, v) = t.raw(Method::POST, &uri, Some(&owner), &ct, body).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert!(matches!(got(&key), Got::Url(u) if u == "https://images.pexels.com/photos/77/orig.jpeg"));
+
+    let jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, b'J', b'F', b'I', b'F'];
+    let (ct, body) = form("file", &jpeg, true);
+    let (s, v) = t.raw(Method::POST, &uri, Some(&owner), &ct, body).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert!(matches!(got(&key), Got::File(n, ref c) if n == jpeg.len() && c == "image/jpeg"));
+
+    let (ct, body) = form("file", b"GIF89a", true);
+    let (s, _) = t.raw(Method::POST, &uri, Some(&owner), &ct, body).await;
+    assert_eq!(s, StatusCode::UNSUPPORTED_MEDIA_TYPE, "GIF не принимаем");
+
+    let (ct, body) = form("pexels_id", b"abc", false);
+    let (s, _) = t.raw(Method::POST, &uri, Some(&owner), &ct, body).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "pexels_id не число");
+
+    let (ct, body) = form("other", b"1", false);
+    let (s, _) = t.raw(Method::POST, &uri, Some(&owner), &ct, body).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "нет нужного поля");
+
+    let mut big = jpeg.to_vec();
+    big.resize(12 * 1024 * 1024, 0);
+    let (ct, body) = form("file", &big, true);
+    let (s, v) = t.raw(Method::POST, &uri, Some(&owner), &ct, body).await;
+    assert_eq!(s, StatusCode::PAYLOAD_TOO_LARGE, "больше лимита: {v}");
 }

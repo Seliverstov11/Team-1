@@ -281,6 +281,13 @@ paths:
       requestBody:
         required: true
         content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: Поле file (своё фото) или pexels_id (выбранный вариант) — как собирает FormData в CRM
+              properties:
+                file: { type: string, format: binary }
+                pexels_id: { type: integer }
           application/json:
             schema: { type: object, required: [pexels_id], properties: { pexels_id: { type: integer, description: id из photo-suggestions } } }
           image/jpeg: { schema: { type: string, format: binary } }
@@ -291,6 +298,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
         "413": { description: Файл больше 10 МБ, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "415": { description: Не JPG, PNG или WebP, или неподходящий Content-Type, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
         "502": { $ref: "#/components/responses/Upstream" }
         "503": { $ref: "#/components/responses/Unavailable" }
 

@@ -179,8 +179,10 @@ python3 tools/gen_seed.py /tmp/table.tsv --per-category 5 > migrations/007_seed_
 
 1. `GET /api/catalog/photo-suggestions?q=<название>` — 6 вариантов с Pexels, запрос можно по-русски.
 2. `POST /api/catalog/products/{id}/photo`:
-   - `Content-Type: application/json`, `{"pexels_id": 123}` — выбранный вариант;
-   - `Content-Type: image/jpeg|png|webp`, тело — сам файл до 10 МБ. Тип проверяется по содержимому.
+   - форма `multipart/form-data` с полем `file` (своё фото) или `pexels_id` (выбранный вариант);
+   - или `application/json` с `{"pexels_id": 123}`, или сам файл с `Content-Type: image/jpeg|png|webp`.
+
+   Фото — JPG, PNG или WebP до 10 МБ, тип проверяется по содержимому: иначе 415 или 413.
 
 Фото хранится в Cloudinary: диск Render Free стирается при перезапуске, а Turso — не хранилище файлов.
 Единый стиль задаёт адрес фото: квадрат 800×800, webp/avif по браузеру. В ответе — товар с новым `image_url`.

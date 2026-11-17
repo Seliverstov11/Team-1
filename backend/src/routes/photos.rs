@@ -4,8 +4,8 @@
 use axum::{
     Json, Router,
     body::Bytes,
-    extract::{DefaultBodyLimit, Path, Query, State},
-    http::{HeaderMap, header::CONTENT_TYPE},
+    extract::{DefaultBodyLimit, FromRequest, Multipart, Path, Query, Request, State, multipart::MultipartError},
+    http::{StatusCode, header::CONTENT_TYPE},
     routing::{get, post},
 };
 use serde::Deserialize;
@@ -58,49 +58,98 @@ struct FromPexels {
     pexels_id: u64,
 }
 
-/// `POST /api/catalog/products/{id}/photo`
+/// Что прислал клиент — вариант с Pexels или свой файл.
+enum Incoming {
+    Pexels(u64),
+    File(Vec<u8>),
+}
+
+fn check_file(bytes: Vec<u8>) -> ApiResult<(Vec<u8>, &'static str)> {
+    if bytes.is_empty() {
+        return Err(bad("файл пустой"));
+    }
+    if bytes.len() > MAX_PHOTO_BYTES {
+        return Err(ApiError::TooLarge("фото — не больше 10 МБ".into()));
+    }
+    let mime = ps::sniff_image(&bytes)
+        .ok_or_else(|| ApiError::UnsupportedMedia("нужно фото в формате JPG, PNG или WebP".into()))?;
+    Ok((bytes, mime))
+}
+
+async fn read_multipart(req: Request) -> ApiResult<Incoming> {
+    let mut form = Multipart::from_request(req, &()).await.map_err(|e| bad(format!("форма: {e}")))?;
+    while let Some(field) = form.next_field().await.map_err(multipart_error)? {
+        match field.name() {
+            Some("file") => {
+                let bytes = field.bytes().await.map_err(multipart_error)?;
+                return Ok(Incoming::File(bytes.to_vec()));
+            }
+            Some("pexels_id") => {
+                let v = field.text().await.map_err(multipart_error)?;
+                let id = v.trim().parse().map_err(|_| bad("pexels_id — число"))?;
+                return Ok(Incoming::Pexels(id));
+            }
+            _ => {}
+        }
+    }
+    Err(bad("в форме нужно поле file или pexels_id"))
+}
+
+/// Обрыв по лимиту тела axum помечает кодом 413 — отдаём его понятным текстом.
+fn multipart_error(e: MultipartError) -> ApiError {
+    if e.status() == StatusCode::PAYLOAD_TOO_LARGE {
+        ApiError::TooLarge("фото — не больше 10 МБ".into())
+    } else {
+        bad(format!("форма: {}", e.body_text()))
+    }
+}
+
+/// `POST /api/catalog/products/{id}/photo` — три равноправных вида тела:
 ///
-/// - `Content-Type: application/json`, тело `{"pexels_id": 123}` — выбранный вариант;
-/// - `Content-Type: image/jpeg | image/png | image/webp`, тело — сам файл.
+/// - `multipart/form-data` с полем `file` (своё фото) или `pexels_id` (выбранный вариант);
+/// - `application/json`: `{"pexels_id": 123}`;
+/// - `image/jpeg | image/png | image/webp`: тело — сам файл.
 ///
+/// Тип файла проверяется по содержимому: JPG, PNG, WebP до 10 МБ, иначе 415 или 413.
 /// Отвечает обновлённым товаром: в `image_url` — адрес фото в едином стиле.
-async fn upload(
-    staff: Staff,
-    State(db): State<Db>,
-    Path(id): Path<String>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> ApiResult<Json<ProductView>> {
+async fn upload(staff: Staff, State(db): State<Db>, Path(id): Path<String>, req: Request) -> ApiResult<Json<ProductView>> {
     staff.require(ADMIN)?;
     let conn = db.connect()?;
     load_product(&conn, &id).await?;
 
-    let ctype = headers
+    let ctype = req
+        .headers()
         .get(CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .map(|v| v.split(';').next().unwrap_or("").trim().to_ascii_lowercase())
         .unwrap_or_default();
 
-    let source = if ctype == "application/json" {
-        let b: FromPexels =
-            serde_json::from_slice(&body).map_err(|_| bad("нужно тело {\"pexels_id\": число}"))?;
-        let cloud = ps::cloudinary()?;
-        let original = ps::pexels_original(b.pexels_id).await?;
-        (cloud, Source::Url(original))
-    } else if ctype.starts_with("image/") {
-        if body.is_empty() {
-            return Err(bad("файл пустой"));
+    let incoming = match ctype.as_str() {
+        "multipart/form-data" => read_multipart(req).await?,
+        "application/json" => {
+            let body = Bytes::from_request(req, &()).await.map_err(|_| ApiError::TooLarge("тело слишком большое".into()))?;
+            let b: FromPexels = serde_json::from_slice(&body).map_err(|_| bad("нужно тело {\"pexels_id\": число}"))?;
+            Incoming::Pexels(b.pexels_id)
         }
-        if body.len() > MAX_PHOTO_BYTES {
-            return Err(ApiError::TooLarge("фото — не больше 10 МБ".into()));
+        c if c.starts_with("image/") => {
+            let body = Bytes::from_request(req, &()).await.map_err(|_| ApiError::TooLarge("фото — не больше 10 МБ".into()))?;
+            Incoming::File(body.to_vec())
         }
-        let mime = ps::sniff_image(&body).ok_or_else(|| bad("нужно фото в формате JPG, PNG или WebP"))?;
-        (ps::cloudinary()?, Source::File { bytes: body.to_vec(), mime })
-    } else {
-        return Err(bad("Content-Type: application/json с pexels_id или image/jpeg, image/png, image/webp"));
+        _ => {
+            return Err(ApiError::UnsupportedMedia(
+                "нужна форма multipart с file или pexels_id, JSON с pexels_id или сам файл image/*".into(),
+            ));
+        }
     };
 
-    let (cloud, src) = source;
+    let cloud = ps::cloudinary()?;
+    let src = match incoming {
+        Incoming::Pexels(pid) => Source::Url(ps::pexels_original(pid).await?),
+        Incoming::File(bytes) => {
+            let (bytes, mime) = check_file(bytes)?;
+            Source::File { bytes, mime }
+        }
+    };
     let url = cloud.upload(&id, src).await?;
     conn.execute(
         "UPDATE products SET image_url = ?1, updated_at = ?2 WHERE id = ?3",
