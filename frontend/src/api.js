@@ -41,12 +41,13 @@ const OFFLINE = 'Сервер недоступен. Проверьте, что b
 
 async function send(method, path, body, { auth = true, raw = false } = {}) {
   const headers = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  const form = body instanceof FormData   // файл: Content-Type с границей ставит браузер
+  if (body !== undefined && !form) headers['Content-Type'] = 'application/json'
   const s = auth ? session.get() : null
   if (s) headers.Authorization = `Bearer ${s.token}`
   let res
   try {
-    res = await fetch(`${BASE}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+    res = await fetch(`${BASE}${path}`, { method, headers, body: body === undefined || form ? body : JSON.stringify(body) })
   } catch {
     throw new ApiError(OFFLINE, 0)
   }
@@ -121,6 +122,10 @@ export const api = {
   setAttributes: (pid, list) => request('PUT', `/catalog/products/${id(pid)}/attributes`, list),
   archiveProduct: pid => request('POST', `/catalog/products/${id(pid)}/archive`),
   restoreProduct: pid => request('POST', `/catalog/products/${id(pid)}/restore`),
+  // Фото товара (#43): 6 вариантов с Pexels по запросу; выбранный вариант или свой файл —
+  // multipart: pexels_id | file. Сервер обрабатывает в общем стиле и отдаёт товар с новым image_url
+  photoSuggestions: q => request('GET', `/catalog/photo-suggestions${query({ q })}`),
+  uploadPhoto: (pid, form) => request('POST', `/catalog/products/${id(pid)}/photo`, form),
 
   // Заказы
   orders: params => request('GET', `/orders${query(params)}`),

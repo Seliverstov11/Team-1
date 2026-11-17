@@ -72,6 +72,28 @@ function downloadCsv(name, rows) {
 }
 
 // «1 200,50» → «1200.50» для API; null — не сумма
+// Своё фото: сервер принимает JPG/PNG/WebP до 10 МБ. Снимок с телефона бывает больше
+// или в HEIC — тогда пережимаем в JPEG до 2400 px по длинной стороне (если браузер умеет его открыть)
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const PHOTO_MAX = 10 * 1024 * 1024
+async function photoForUpload(file) {
+  if (!file.type.startsWith('image/') && !/\.(heic|heif)$/i.test(file.name)) throw new Error('Это не изображение — выберите фото')
+  if (PHOTO_TYPES.includes(file.type) && file.size <= PHOTO_MAX) return file
+  let bmp
+  try { bmp = await createImageBitmap(file) } catch {
+    throw new Error('Браузер не смог открыть этот файл — сохраните фото как JPG или PNG')
+  }
+  const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bmp.width * k)
+  canvas.height = Math.round(bmp.height * k)
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height)
+  bmp.close?.()
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9))
+  if (!blob || blob.size > PHOTO_MAX) throw new Error('Фото слишком большое — выберите другое')
+  return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' })
+}
+
 const moneyInput = v => {
   const s = String(v ?? '').replace(/\s/g, '').replace(',', '.')
   return /^\d+(\.\d{1,2})?$/.test(s) ? s : null
@@ -876,6 +898,8 @@ document.addEventListener('alpine:init', () => {
     saving: false,
     formError: null,
     attrNames: [],
+    // Фото (#44): pending — выбранное, но ещё не отправленное (у нового товара уходит после создания)
+    photo: { open: false, q: '', list: [], loading: false, error: null, pending: null, sending: false, sendError: null },
 
     async init() {
       await this.load()
@@ -900,12 +924,92 @@ document.addEventListener('alpine:init', () => {
       this.edit = p
         ? { id: p.id, category_id: p.category_id, name: p.name, sku: p.sku ?? '', price: p.price.replace(/\.00$/, ''), unit: p.unit,
             variant_name: p.variant_name ?? '', group_id: p.group_id ?? '', description: p.description ?? '', is_archived: p.is_archived,
-            attributes: (p.attributes ?? []).map(a => ({ ...a })) }
+            image_url: p.image_url ?? null, attributes: (p.attributes ?? []).map(a => ({ ...a })) }
         : { category_id: this.category || this.$store.crm.categories[0]?.id, name: '', sku: '', price: '', unit: 'шт', variant_name: '', group_id: '',
-            description: '', stock: '', storage_location: '', attributes: [{ name: '', value: '' }] }
+            description: '', stock: '', storage_location: '', image_url: null, attributes: [{ name: '', value: '' }] }
+      this.photoReset()
+    },
+
+    // ---------------------------------------------------------------- фото товара
+    photoReset() {
+      if (this.photo.pending?.preview?.startsWith('blob:')) URL.revokeObjectURL(this.photo.pending.preview)
+      this.photo = { open: false, q: '', list: [], loading: false, error: null, pending: null, sending: false, sendError: null }
+    },
+    photoError(e, what) {
+      if (e.status === 503) return 'Подбор и загрузка фото пока не настроены на сервере. Товар сохраняется без фото — фото можно добавить позже.'
+      if (e.status === 0) return `Нет связи с сервером — ${what}. Проверьте интернет и попробуйте ещё раз.`
+      if (e.status === 413) return 'Файл больше 10 МБ — выберите фото поменьше.'
+      if (e.status === 415) return 'Этот формат не подходит — нужен JPG, PNG или WebP.'
+      return `${what[0].toUpperCase()}${what.slice(1)}: ${e.message}`
+    },
+    async photoSuggest() {
+      const ph = this.photo
+      if (!ph.open) { ph.open = true; ph.q = ph.q || this.edit.name.trim() }
+      if (!ph.q.trim()) { ph.error = 'Введите название товара или запрос'; return }
+      ph.loading = true
+      ph.error = null
+      try {
+        const r = await api.photoSuggestions(ph.q.trim())
+        ph.list = (Array.isArray(r) ? r : r?.photos ?? []).slice(0, 6)
+        if (!ph.list.length) ph.error = 'Ничего не нашлось — попробуйте другой запрос, например по-английски'
+      } catch (e) {
+        ph.list = []
+        ph.error = this.photoError(e, 'варианты не загрузились')
+      } finally {
+        ph.loading = false
+      }
+    },
+    photoPick(s) {
+      this.photoSet({ pexels_id: s.id, preview: s.thumb ?? s.src, alt: s.alt })
+      this.photo.open = false
+    },
+    async photoFile(ev) {
+      const file = ev.target.files?.[0]
+      ev.target.value = ''           // тот же файл можно выбрать ещё раз
+      if (!file) return
+      this.photo.sendError = null
+      try {
+        const ready = await photoForUpload(file)
+        this.photoSet({ file: ready, preview: URL.createObjectURL(ready), alt: file.name })
+      } catch (e) {
+        this.photo.sendError = e.message
+      }
+    },
+    photoSet(pending) {
+      if (this.photo.pending?.preview?.startsWith('blob:')) URL.revokeObjectURL(this.photo.pending.preview)
+      this.photo.pending = pending
+      this.photo.sendError = null
+      // У существующего товара отправляем сразу; новый сначала надо создать — фото уйдёт после «Сохранить»
+      if (this.edit.id) this.photoSend(this.edit.id)
+    },
+    // true — фото на месте или нечего отправлять; false — ошибка (текст в photo.sendError)
+    async photoSend(pid) {
+      const ph = this.photo
+      if (!ph.pending) return true
+      const form = new FormData()
+      if (ph.pending.file) form.append('file', ph.pending.file, ph.pending.file.name)
+      else form.append('pexels_id', String(ph.pending.pexels_id))
+      ph.sending = true
+      ph.sendError = null
+      try {
+        const p = await api.uploadPhoto(pid, form)
+        const i = this.list.findIndex(x => x.id === pid)
+        if (p?.id) { if (i >= 0) this.list.splice(i, 1, p) }
+        else if (i >= 0 && p?.image_url) this.list[i].image_url = p.image_url
+        if (this.edit?.id === pid) this.edit.image_url = p?.image_url ?? this.edit.image_url
+        if (ph.pending.preview?.startsWith('blob:')) URL.revokeObjectURL(ph.pending.preview)
+        ph.pending = null
+        return true
+      } catch (e) {
+        ph.sendError = this.photoError(e, 'фото не отправлено')
+        return false
+      } finally {
+        ph.sending = false
+      }
     },
     async save() {
       const f = this.edit
+      const isNew = !f.id
       const price = moneyInput(f.price)
       if (!f.name.trim()) { this.formError = 'Укажите название'; return }
       if (price === null) { this.formError = 'Цена — число, например 1880'; return }
@@ -927,9 +1031,18 @@ document.addEventListener('alpine:init', () => {
         }
         const i = this.list.findIndex(x => x.id === p.id)
         i >= 0 ? this.list.splice(i, 1, p) : this.list.unshift(p)
-        this.$store.crm.notify(f.id ? `Сохранено: ${p.name}` : `Товар добавлен: ${p.name}`)
-        this.edit = null
         this.$store.crm.refreshStock()
+        // Фото нового товара — после создания. Не вышло — товар уже сохранён: форма остаётся открытой
+        // в режиме правки, чтобы повторить отправку или закрыть без фото
+        if (isNew && this.photo.pending) {
+          f.id = p.id
+          if (!(await this.photoSend(p.id))) {
+            this.$store.crm.notify(`Товар добавлен без фото: ${p.name}`)
+            return
+          }
+        }
+        this.$store.crm.notify(isNew ? `Товар добавлен: ${p.name}` : `Сохранено: ${p.name}`)
+        this.edit = null
       } catch (e) {
         this.formError = e.message
       } finally {
@@ -949,7 +1062,7 @@ document.addEventListener('alpine:init', () => {
   }))
 })
 
-window.bl = { retail, groupOfCategory, formatQty, milli }
+window.bl = { retail, groupOfCategory, groupMedia: id => groupOfCategory(id).media, formatQty, milli }
 
 window.Alpine = Alpine
 Alpine.start()
