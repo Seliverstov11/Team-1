@@ -5,6 +5,7 @@ pub mod employees;
 pub mod invoice;
 pub mod me;
 pub mod orders;
+pub mod photos;
 pub mod warehouse;
 
 use axum::Router;
@@ -18,7 +19,7 @@ use crate::{
 pub fn router() -> Router<Db> {
     Router::new()
         .nest("/auth", crate::auth::router())
-        .nest("/catalog", catalog::router())
+        .nest("/catalog", catalog::router().merge(photos::router()))
         .nest("/orders", orders::router())
         .nest("/warehouse", warehouse::router())
         .nest("/clients", clients::router())

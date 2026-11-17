@@ -252,6 +252,56 @@ paths:
                 type: array
                 items: { type: object, properties: { name: { type: string }, products: { type: integer } } }
 
+  /api/catalog/photo-suggestions:
+    get:
+      tags: [catalog]
+      summary: Варианты фото для товара с Pexels (admin)
+      description: |
+        Окно выбора фото в форме товара (#43, #44). Запрос можно по-русски — например, название товара.
+        Без `PEXELS_API_KEY` на сервере — 503, остальной API работает.
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, maxLength: 100 }, example: "коробка для торта с окном" }
+        - { name: count, in: query, schema: { type: integer, minimum: 1, maximum: 12, default: 6 } }
+      responses:
+        "200":
+          description: Варианты
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PhotoSuggestion" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { $ref: "#/components/responses/Upstream" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /api/catalog/products/{id}/photo:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [catalog]
+      summary: Поставить фото товару — выбранный вариант или свой файл (admin)
+      description: |
+        Фото сохраняется в Cloudinary и приводится к единому стилю (ФТ-Т-07): квадрат 800×800, webp/avif.
+        В ответе — товар с новым `image_url`. Повторная загрузка заменяет прежнее фото.
+        Без `CLOUDINARY_URL` (а для варианта с Pexels — и без `PEXELS_API_KEY`) — 503.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: Поле file (своё фото) или pexels_id (выбранный вариант) — как собирает FormData в CRM
+              properties:
+                file: { type: string, format: binary }
+                pexels_id: { type: integer }
+          application/json:
+            schema: { type: object, required: [pexels_id], properties: { pexels_id: { type: integer, description: id из photo-suggestions } } }
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary, description: Свой файл, до 10 МБ. Тип проверяется по содержимому } }
+      responses:
+        "200": { description: Товар, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Файл больше 10 МБ, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "415": { description: Не JPG, PNG или WebP, или неподходящий Content-Type, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "502": { $ref: "#/components/responses/Upstream" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   # ─── Заказы ─────────────────────────────────────────────────────────────────
   /api/orders:
     get:
@@ -624,11 +674,23 @@ components:
     NotFound: { description: Не найдено, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
     Conflict: { description: Действие противоречит состоянию, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
     TooManyRequests: { description: Слишком много неверных попыток входа, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Upstream: { description: Внешний сервис (Pexels, Cloudinary) не ответил, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Unavailable: { description: Возможность не настроена на сервере — нет ключей, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   schemas:
     Error:
       type: object
       properties: { error: { type: string, example: "заказ оплачен — сначала оформите возврат, затем отмену" } }
+
+    PhotoSuggestion:
+      type: object
+      properties:
+        id: { type: integer, description: id фото на Pexels — передать в POST …/photo }
+        thumb: { type: string, description: Миниатюра для сетки }
+        preview: { type: string, description: Крупный вариант для предпросмотра }
+        alt: { type: string }
+        photographer: { type: string }
+        url: { type: string, description: Страница фото на Pexels }
 
     Money: { type: string, example: "1880.00", description: Тенге с двумя знаками }
     Qty: { type: string, example: "2.500", description: Количество с тремя знаками }

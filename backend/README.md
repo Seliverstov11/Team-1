@@ -59,6 +59,9 @@ curl -s localhost:8080/api/auth/login -H 'content-type: application/json' \
 | `SHOP_NAME`, `SHOP_BIN`, `SHOP_ADDRESS` | `BAKELOOM` | Реквизиты в накладной |
 | `SESSION_DAYS` | `30` | Сколько действует вход |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | — | Turso для задеплоенного демо |
+| `PEXELS_API_KEY` | — | Подбор фото в CRM (pexels.com/api, бесплатно). Без ключа — 503 |
+| `CLOUDINARY_URL` | — | Хранение фото: `cloudinary://ключ:секрет@облако` (cloudinary.com, бесплатно). Без него — 503 |
+| `CLOUDINARY_REMOVE_BG` | `false` | Убирать фон у фото из CRM. Включать, только проверив, что эффект `e_background_removal` есть на аккаунте |
 | `RUST_LOG` | `info` | Подробность логов |
 
 ## Что умеет API
@@ -68,6 +71,7 @@ curl -s localhost:8080/api/auth/login -H 'content-type: application/json' \
 | Вход | `/api/auth/*` | все |
 | Каталог | `GET /api/catalog/*` | публично |
 | Управление каталогом | `POST/PATCH/DELETE /api/catalog/*` | владелец |
+| Фото товара | `GET /api/catalog/photo-suggestions?q=`, `POST /api/catalog/products/{id}/photo` | владелец |
 | Оформление заказа | `POST /api/orders` | сайт, покупатель, менеджер |
 | Отслеживание | `GET /api/orders/track?order_no=&phone=` | публично |
 | Заказы | `/api/orders/*` | сотрудники |
@@ -169,6 +173,20 @@ python3 tools/gen_seed.py /tmp/table.tsv --per-category 5 > migrations/007_seed_
 
 Миграция 007 перезаливает демо-данные: на старой локальной БД тестовые заказы пропадут. Если нужна чистая база — удалите `data.db`.
 
+## Фото товаров
+
+Массово каталог заполняет скрипт `tools/photos` (#46). Для новых товаров — CRM (#43, #44):
+
+1. `GET /api/catalog/photo-suggestions?q=<название>` — 6 вариантов с Pexels, запрос можно по-русски.
+2. `POST /api/catalog/products/{id}/photo`:
+   - форма `multipart/form-data` с полем `file` (своё фото) или `pexels_id` (выбранный вариант);
+   - или `application/json` с `{"pexels_id": 123}`, или сам файл с `Content-Type: image/jpeg|png|webp`.
+
+   Фото — JPG, PNG или WebP до 10 МБ, тип проверяется по содержимому: иначе 415 или 413.
+
+Фото хранится в Cloudinary: диск Render Free стирается при перезапуске, а Turso — не хранилище файлов.
+Единый стиль задаёт адрес фото: квадрат 800×800, webp/avif по браузеру. В ответе — товар с новым `image_url`.
+
 ## Структура
 
 ```
@@ -183,8 +201,10 @@ backend/
 │   ├── models.rs      строки БД и ответы API
 │   ├── pricing.rs     выбор цены
 │   ├── notify.rs      Telegram
-│   └── routes/        catalog, orders, warehouse, clients, employees, me, dashboard, invoice
+│   ├── photo_services.rs  Pexels и Cloudinary
+│   └── routes/        catalog, photos, orders, warehouse, clients, employees, me, dashboard, invoice
 ├── tests/api.rs       сценарии API на временной БД
+├── tests/photos.rs    фото с подставными Pexels и Cloudinary
 ├── tools/             генерация демо-данных из таблицы
 └── openapi.yaml
 ```

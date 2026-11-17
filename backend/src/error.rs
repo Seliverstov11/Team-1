@@ -24,6 +24,18 @@ pub enum ApiError {
     /// Слишком много неудачных попыток входа подряд.
     #[error("{0}")]
     TooManyRequests(String),
+    /// Формат файла не подходит.
+    #[error("{0}")]
+    UnsupportedMedia(String),
+    /// Файл больше допустимого.
+    #[error("{0}")]
+    TooLarge(String),
+    /// Внешний сервис ответил ошибкой или не ответил (Pexels, Cloudinary).
+    #[error("{0}")]
+    Upstream(String),
+    /// Возможность не настроена: нет ключей в переменных окружения.
+    #[error("{0}")]
+    Unavailable(String),
     #[error(transparent)]
     Db(#[from] libsql::Error),
     #[error(transparent)]
@@ -39,6 +51,13 @@ impl IntoResponse for ApiError {
             ApiError::Forbidden(m) => (StatusCode::FORBIDDEN, m.clone()),
             ApiError::Conflict(m) => (StatusCode::CONFLICT, m.clone()),
             ApiError::TooManyRequests(m) => (StatusCode::TOO_MANY_REQUESTS, m.clone()),
+            ApiError::UnsupportedMedia(m) => (StatusCode::UNSUPPORTED_MEDIA_TYPE, m.clone()),
+            ApiError::TooLarge(m) => (StatusCode::PAYLOAD_TOO_LARGE, m.clone()),
+            ApiError::Upstream(m) => {
+                tracing::warn!("внешний сервис: {m}");
+                (StatusCode::BAD_GATEWAY, m.clone())
+            }
+            ApiError::Unavailable(m) => (StatusCode::SERVICE_UNAVAILABLE, m.clone()),
             ApiError::Db(e) => {
                 tracing::error!("ошибка БД: {e}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "ошибка базы данных".into())

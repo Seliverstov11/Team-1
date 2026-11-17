@@ -4,6 +4,7 @@ pub mod db;
 pub mod error;
 pub mod models;
 pub mod notify;
+pub mod photo_services;
 pub mod num;
 pub mod pricing;
 pub mod routes;
