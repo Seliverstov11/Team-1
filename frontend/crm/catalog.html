@@ -119,6 +119,62 @@
             <textarea x-model="edit.description" rows="2" class="crm-field h-auto py-2"></textarea>
           </label>
 
+          <!-- Фото (#44): текущее или заглушка раздела; «Подобрать» — 6 вариантов с Pexels, «Загрузить своё» — файл или камера.
+               Сервер приводит любое фото к общему стилю сайта (фон, квадрат, тень) -->
+          <div class="sm:col-span-2">
+            <p class="text-[0.75rem]">Фото</p>
+            <div class="mt-2 flex flex-wrap items-start gap-4">
+              <div class="relative size-28 shrink-0 overflow-hidden rounded-search border border-line" x-data="{ get p() { return edit } }">
+                <template x-if="!photo.pending">
+                  <div class="contents"><!-- @include product-image.html --></div>
+                </template>
+                <template x-if="photo.pending"><img :src="photo.pending.preview" :alt="photo.pending.alt || 'Выбранное фото'" class="size-full object-cover" /></template>
+                <div x-show="photo.sending" x-cloak class="absolute inset-0 grid place-items-center bg-white/75 text-center text-[0.6875rem]" role="status">
+                  <span><span class="mx-auto mb-1 block size-5 animate-spin rounded-full border-2 border-brand-gold border-t-transparent"></span>Обрабатываем…</span>
+                </div>
+              </div>
+              <div class="flex min-w-0 flex-1 flex-col gap-2">
+                <p class="text-[0.75rem] text-ink-muted"
+                   x-text="photo.sending ? 'Фото обрабатывается: убираем фон, подгоняем под общий стиль' :
+                           photo.pending ? (edit.id ? 'Фото выбрано' : 'Фото выбрано — отправится после «Сохранить»') :
+                           edit.image_url ? 'Фото на сайте' : 'Фото нет — на сайте заглушка раздела'"></p>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" class="btn-outline btn-s" :disabled="photo.sending" @click="photo.open ? (photo.open = false) : photoSuggest()"
+                          :aria-expanded="photo.open" aria-controls="photo-picker">Подобрать</button>
+                  <label class="btn-outline btn-s cursor-pointer" :class="photo.sending && 'pointer-events-none opacity-50'">
+                    Загрузить своё
+                    <input type="file" accept="image/*" class="sr-only" :disabled="photo.sending" @change="photoFile($event)" />
+                  </label>
+                  <button type="button" x-show="photo.pending && !photo.sending" x-cloak class="text-[0.75rem] text-ink-muted underline underline-offset-2 hover:text-ink"
+                          @click="photoSet(null)">Не менять фото</button>
+                  <button type="button" x-show="photo.pending && photo.sendError && edit.id && !photo.sending" x-cloak class="text-[0.75rem] text-brand-gold underline underline-offset-2"
+                          @click="photoSend(edit.id)">Отправить ещё раз</button>
+                </div>
+                <p x-show="photo.sendError" x-cloak role="alert" class="rounded-control bg-error-soft px-3 py-2 text-[0.75rem] text-error" x-text="photo.sendError"></p>
+              </div>
+            </div>
+
+            <div id="photo-picker" x-show="photo.open" x-cloak class="mt-3 rounded-card border border-line bg-brand-light/50 p-3">
+              <div class="flex gap-2">
+                <input type="search" x-model="photo.q" @keydown.enter.prevent="photoSuggest()" class="crm-field min-w-0 flex-1" placeholder="Например: коробка для торта" aria-label="Запрос для подбора фото" />
+                <button type="button" class="btn-primary btn-s shrink-0" :disabled="photo.loading" @click="photoSuggest()">Найти</button>
+              </div>
+              <p x-show="photo.error" x-cloak role="alert" class="mt-2 text-[0.75rem] text-error" x-text="photo.error"></p>
+              <ul class="mt-3 grid grid-cols-3 gap-2" :aria-busy="photo.loading">
+                <template x-for="(s, i) in photo.loading ? Array.from({ length: 6 }, (_, k) => ({ id: `wait-${k}`, wait: true })) : photo.list" :key="s.id">
+                  <li>
+                    <div x-show="s.wait" class="skeleton aspect-square rounded-control"></div>
+                    <button type="button" x-show="!s.wait" class="block aspect-square w-full overflow-hidden rounded-control border-2 border-transparent bg-white hover:border-brand-gold focus-visible:border-brand-gold"
+                            :class="photo.pending?.pexels_id === s.id && 'border-brand-dark'" @click="photoPick(s)" :title="s.alt || 'Выбрать это фото'">
+                      <img x-show="!s.wait" :src="s.thumb ?? s.src" :alt="s.alt || `Вариант ${i + 1}`" loading="lazy" class="size-full object-cover" />
+                    </button>
+                  </li>
+                </template>
+              </ul>
+              <p class="mt-2 text-[0.6875rem] text-ink-muted">Фото Pexels. После выбора фон уберётся, фото станет в общем стиле сайта</p>
+            </div>
+          </div>
+
           <!-- Характеристики: у каждого товара свой набор, порядок — как на карточке (ФТ-Т-03) -->
           <div class="sm:col-span-2">
             <p class="text-[0.75rem]">Характеристики</p>
