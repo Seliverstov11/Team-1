@@ -249,7 +249,7 @@ fn price_client(actor: &MaybeActor, requested: Option<&String>) -> Option<String
     None
 }
 
-async fn to_views(
+pub(super) async fn to_views(
     conn: &libsql::Connection,
     products: Vec<ProductRow>,
     client: Option<&str>,
@@ -319,7 +319,7 @@ async fn list_products(
     Ok(Json(to_views(&conn, products, client.as_deref()).await?))
 }
 
-async fn load_product(conn: &libsql::Connection, id: &str) -> ApiResult<ProductRow> {
+pub(super) async fn load_product(conn: &libsql::Connection, id: &str) -> ApiResult<ProductRow> {
     let rows = conn
         .query(&format!("SELECT {PRODUCT_COLS} FROM products WHERE id = ?1"), libsql::params![id])
         .await?;

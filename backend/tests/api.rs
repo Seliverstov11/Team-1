@@ -463,3 +463,27 @@ async fn у_отменённого_после_возврата_нет_долга
     assert_eq!(s, StatusCode::OK);
     assert_eq!(v["due"], "0.00");
 }
+
+#[tokio::test]
+async fn фото_без_ключей_отвечает_503_остальное_работает() {
+    // В этом процессе ключей Pexels и Cloudinary нет — как на сервере до настройки.
+    let t = setup().await;
+    let owner = t.login("owner").await;
+    let id = t.product().await;
+
+    let (s, v) = t.get("/api/catalog/photo-suggestions?q=box", Some(&owner)).await;
+    assert_eq!(s, StatusCode::SERVICE_UNAVAILABLE, "{v}");
+    assert!(v["error"].as_str().unwrap().contains("PEXELS_API_KEY"));
+
+    let (s, v) = t.post(&format!("/api/catalog/products/{id}/photo"), Some(&owner), json!({ "pexels_id": 1 })).await;
+    assert_eq!(s, StatusCode::SERVICE_UNAVAILABLE, "{v}");
+
+    let (s, _) = t.get("/api/catalog/photo-suggestions?q=box", None).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    let sklad = t.login("sklad").await;
+    let (s, _) = t.get("/api/catalog/photo-suggestions?q=box", Some(&sklad)).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+
+    let (s, _) = t.get(&format!("/api/catalog/products/{id}"), None).await;
+    assert_eq!(s, StatusCode::OK, "каталог работает без ключей");
+}
