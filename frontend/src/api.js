@@ -125,7 +125,7 @@ export const api = {
   // Фото товара (#43): 6 вариантов с Pexels по запросу; выбранный вариант или свой файл —
   // multipart: pexels_id | file. Сервер обрабатывает в общем стиле и отдаёт товар с новым image_url
   photoSuggestions: q => request('GET', `/catalog/photo-suggestions${query({ q })}`),
-  uploadPhoto: (pid, form) => request('POST', `/products/${id(pid)}/photo`, form),
+  uploadPhoto: (pid, form) => request('POST', `/catalog/products/${id(pid)}/photo`, form),
 
   // Заказы
   orders: params => request('GET', `/orders${query(params)}`),
