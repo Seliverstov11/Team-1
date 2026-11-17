@@ -1,0 +1,1028 @@
+openapi: "3.0.3"
+info:
+  title: BAKELOOM API
+  version: "1.0.0"
+  description: |
+    REST API интернет-магазина BAKELOOM и CRM для менеджеров и склада.
+    На этом контракте строятся сайт, CRM и мобильная практика (H7).
+    Требования — ТЗ BAKELOOM v1.0 от 15.11.2026, номера пунктов указаны в описаниях.
+
+    **Деньги и количества** передаются строкой — «1880.00», «2.500». Строкой, а не
+    числом, чтобы JSON-парсер не превратил их во float. Валюта — тенге.
+
+    **Вход.** `POST /api/auth/login` (сотрудник) или `/api/auth/client/login` (покупатель)
+    возвращает токен; дальше он передаётся в заголовке `Authorization: Bearer <токен>`.
+    Права проверяет сервер. Роли сотрудников: `admin` — владелец, `manager`, `warehouse` —
+    кладовщик. У каждого закрытого метода в описании указано, каким ролям он доступен.
+    Без входа — 401, роли не хватает — 403.
+
+    **Ошибки** — JSON `{"error": "текст на русском"}`. 400 — неверные данные,
+    404 — не найдено, 409 — действие противоречит состоянию (отмена оплаченного
+    заказа, недопустимый переход статуса, удаление товара с историей).
+
+servers:
+  - url: http://localhost:8080
+    description: Локальная разработка
+
+tags:
+  - name: auth
+    description: Вход сотрудников и покупателей
+  - name: catalog
+    description: Каталог — публичная выдача и управление для владельца
+  - name: orders
+    description: Заказы — оформление, жизненный цикл, сборка, оплата
+  - name: warehouse
+    description: Склад — остатки, полки, приход, очередь сборки
+  - name: clients
+    description: База клиентов и персональные цены
+  - name: employees
+    description: Сотрудники
+  - name: me
+    description: Профиль вошедшего покупателя
+  - name: analytics
+    description: Дашборд и аналитика для владельца
+
+security:
+  - bearer: []
+
+paths:
+  /health:
+    get:
+      tags: [auth]
+      summary: Проверка, что сервер жив
+      security: []
+      responses:
+        "200": { description: OK }
+
+  # ─── Вход ───────────────────────────────────────────────────────────────────
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Вход сотрудника по логину и паролю
+      description: После 5 неверных паролей подряд по одному логину — пауза 5 минут, ответ 429 даже на верный пароль.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, password]
+              properties:
+                login: { type: string, example: dana }
+                password: { type: string }
+      responses:
+        "200": { description: Вход выполнен, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/auth/client/login:
+    post:
+      tags: [auth]
+      summary: Вход покупателя по телефону и паролю
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, password]
+              properties:
+                phone: { type: string, example: "+7 701 123 45 67" }
+                password: { type: string }
+      responses:
+        "200": { description: Вход выполнен, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/auth/client/register:
+    post:
+      tags: [auth]
+      summary: Регистрация покупателя
+      description: |
+        Если клиент с этим телефоном уже заказывал, учётная запись привязывается к его
+        карточке и история заказов сразу видна в профиле. Клиенту с персональными ценами
+        пароль выдаёт владелец (`POST /api/clients/{id}/password`) — 409.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, password]
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                password: { type: string, minLength: 6 }
+                city: { type: string, nullable: true }
+      responses:
+        "200": { description: Зарегистрирован и вошёл, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Выход — токен перестаёт действовать
+      responses:
+        "200": { description: OK }
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Кто вошёл
+      responses:
+        "200": { description: Пользователь, content: { application/json: { schema: { $ref: "#/components/schemas/User" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ─── Каталог ────────────────────────────────────────────────────────────────
+  /api/catalog/categories:
+    get:
+      tags: [catalog]
+      summary: Категории
+      security: []
+      responses:
+        "200": { description: Список, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Category" } } } } }
+    post:
+      tags: [catalog]
+      summary: Добавить категорию (admin)
+      description: Категории динамические, без хардкода (ФТ-К-02). Адрес строится из названия.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CategoryInput" } } } }
+      responses:
+        "200": { description: Категория, content: { application/json: { schema: { $ref: "#/components/schemas/Category" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/catalog/categories/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [catalog]
+      summary: Изменить категорию (admin)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CategoryInput" } } } }
+      responses:
+        "200": { description: Категория, content: { application/json: { schema: { $ref: "#/components/schemas/Category" } } } }
+    delete:
+      tags: [catalog]
+      summary: Удалить пустую категорию (admin)
+      responses:
+        "200": { description: Удалена }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/catalog/products:
+    get:
+      tags: [catalog]
+      summary: Товары
+      description: |
+        Публичная выдача. Вошедший покупатель видит свою персональную цену в `personal_price`.
+        `client_id` работает только для сотрудника — посмотреть каталог глазами клиента;
+        гостю параметр ничего не даёт, чтобы чужие договорные цены не были видны.
+      security: [{}, { bearer: [] }]
+      parameters:
+        - { name: category_id, in: query, schema: { type: string } }
+        - { name: group_id, in: query, schema: { type: string }, description: Все фасовки одной карточки }
+        - { name: search, in: query, schema: { type: string }, description: "Слова в любом порядке, без учёта регистра: название, фасовка, артикул, категория («коробка торт», «шоколад»)" }
+        - { name: in_stock, in: query, schema: { type: boolean } }
+        - { name: sort, in: query, schema: { type: string, enum: [name, price_asc, price_desc, new], default: name } }
+        - { name: client_id, in: query, schema: { type: string }, description: Только для сотрудника }
+        - { name: include_archived, in: query, schema: { type: boolean }, description: Только для admin }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 500 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200": { description: Список, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Product" } } } } }
+    post:
+      tags: [catalog]
+      summary: Добавить товар (admin)
+      description: Отдельная страница добавления товара (ФТ-КТ-01). Начальный остаток оформляется приходом.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ProductInput" } } } }
+      responses:
+        "200": { description: Товар, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/catalog/products/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [catalog]
+      summary: Товар
+      security: [{}, { bearer: [] }]
+      parameters:
+        - { name: client_id, in: query, schema: { type: string }, description: Только для сотрудника }
+      responses:
+        "200": { description: Товар, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [catalog]
+      summary: Изменить товар (admin)
+      description: Меняется переданное. Цена действует для новых заказов, старые хранят снимок (ФТ-Ц-05). Остаток — только через склад.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ProductInput" } } } }
+      responses:
+        "200": { description: Товар, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+    delete:
+      tags: [catalog]
+      summary: Удалить ошибочно созданный товар (admin)
+      description: Только без заказов и движений по складу, иначе 409 — такой товар снимают с продажи (ФТ-КТ-03).
+      responses:
+        "200": { description: Удалён }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/catalog/products/{id}/archive:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [catalog]
+      summary: Снять с продажи (admin)
+      responses:
+        "200": { description: Товар, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+  /api/catalog/products/{id}/restore:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [catalog]
+      summary: Вернуть в продажу (admin)
+      responses:
+        "200": { description: Товар, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+  /api/catalog/products/{id}/attributes:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    put:
+      tags: [catalog]
+      summary: Заменить характеристики товара (admin)
+      description: У каждого товара свой набор, единого нет (ФТ-Т-03). Порядок в списке — порядок на карточке.
+      requestBody: { required: true, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Attribute" } } } } }
+      responses:
+        "200": { description: Товар, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+  /api/catalog/attributes:
+    get:
+      tags: [catalog]
+      summary: Заведённые названия характеристик — подсказки для формы (все сотрудники)
+      responses:
+        "200":
+          description: Список
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, properties: { name: { type: string }, products: { type: integer } } }
+
+  # ─── Заказы ─────────────────────────────────────────────────────────────────
+  /api/orders:
+    get:
+      tags: [orders]
+      summary: Список заказов (все сотрудники; кладовщику без оплаты)
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/OrderStatus" } }
+        - { name: payment_status, in: query, schema: { $ref: "#/components/schemas/PaymentStatus" } }
+        - { name: channel, in: query, schema: { $ref: "#/components/schemas/Channel" } }
+        - { name: assigned_to, in: query, schema: { type: string } }
+        - { name: client_id, in: query, schema: { type: string } }
+        - { name: urgent, in: query, schema: { type: boolean } }
+        - { name: problem, in: query, schema: { type: boolean } }
+        - { name: search, in: query, schema: { type: string }, description: Номер заказа, имя клиента или телефон }
+        - { name: date_from, in: query, schema: { type: string, format: date } }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200": { description: Срочные сверху, затем новые, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Order" } } } } }
+    post:
+      tags: [orders]
+      summary: Оформить заказ (сайт, покупатель или admin/manager)
+      description: |
+        Гость и покупатель — канал всегда `site`. Менеджер заводит заказы из WhatsApp,
+        Instagram и по телефону (`source`), может не указывать адрес — тогда «Уточнить у клиента».
+        Резерв ставится сразу; при нехватке любой позиции не меняется ничего (ФТ-З-06).
+        Заказ привязывается к карточке клиента по телефону. Персональные цены — только
+        вошедшему покупателю или если заказ заводит менеджер за клиента (`client_id`).
+        Сотрудникам уходит уведомление в Telegram, если он настроен.
+      security: [{}, { bearer: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreateOrder" } } } }
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /api/orders/track:
+    get:
+      tags: [orders]
+      summary: Отслеживание заказа покупателем по номеру и телефону (ФТ-ЛК-03)
+      security: []
+      parameters:
+        - { name: order_no, in: query, required: true, schema: { type: string } }
+        - { name: phone, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Этап заказа, content: { application/json: { schema: { $ref: "#/components/schemas/Tracking" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/orders/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [orders]
+      summary: Карточка заказа
+      description: Сотрудник — с журналом и историей клиента (ФТ-М-05). Покупатель — только свой заказ, без журнала.
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [orders]
+      summary: Изменить заказ — статус, ответственный, срочность, проблема, доставка
+      description: |
+        Меняется переданное. Статус — по графу переходов (ФТ-З-03):
+        new → confirmed | cancelled; confirmed → assembled | cancelled; assembled → handed_over | cancelled;
+        handed_over → shipped | delivered | completed; shipped → delivered | completed; delivered → completed.
+        Перевести в `assembled` и `handed_over` может кладовщик, остальное — admin и manager.
+        Отмена оплаченного — 409, сначала возврат (ФТ-П-05). `assembled` не пройдёт при нехватке или
+        проблеме. `handed_over` списывает товар со склада и требует адрес для доставки (ФТ-О-06).
+        Остальные поля — только admin и manager; доставку можно менять до передачи.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/UpdateOrder" } } } }
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/orders/{id}/payment:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [orders]
+      summary: Отметить оплату (admin, manager)
+      description: |
+        QR Kaspi статический, система о платеже не узнаёт — отметку ставит менеджер (ФТ-П-03).
+        `paid` — на всю сумму, `partial` — предоплата меньше итога, `unpaid` — снять ошибочную
+        отметку, `refunded` — возврат по оплаченному заказу. Онлайн-оплаты нет — 400.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ConfirmPayment" } } } }
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/orders/{id}/events:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [orders]
+      summary: Журнал действий по заказу (все сотрудники; кладовщику без оплат)
+      responses:
+        "200": { description: Журнал, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Event" } } } } }
+  /api/orders/{id}/comments:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [orders]
+      summary: Комментарий к заказу (все сотрудники)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string } } } } }
+      responses:
+        "200": { description: Журнал, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Event" } } } } }
+  /api/orders/{id}/items:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [orders]
+      summary: Добавить позицию (admin, manager; статусы new и confirmed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [product_id, quantity], properties: { product_id: { type: string }, quantity: { type: string, example: "2" } } }
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/orders/{id}/items/{item_id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/ItemId" }]
+    patch:
+      tags: [orders]
+      summary: Изменить количество или скидку строки (admin, manager)
+      description: Правка заказа прямо в карточке (ФТ-М-07). Резерв пересчитывается, нехватка по строке закрывается. Цена строки остаётся прежней.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { quantity: { type: string }, discount_percent: { type: integer, minimum: 0, maximum: 100 } } }
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+    delete:
+      tags: [orders]
+      summary: Убрать позицию (admin, manager)
+      description: Последнюю позицию убрать нельзя — такой заказ отменяют.
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/orders/{id}/items/{item_id}/pick:
+    parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/ItemId" }]
+    patch:
+      tags: [orders]
+      summary: Отметка сборки (все сотрудники; заказ в статусе confirmed)
+      description: Галочка у собранной позиции и нехватка (ФТ-СК-07). Нехватка делает заказ проблемным, признак снимается сам, когда менеджер поправит состав (ФТ-З-08).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [picked], properties: { picked: { type: boolean }, short_qty: { type: string, example: "1" } } }
+      responses:
+        "200": { description: Заказ, content: { application/json: { schema: { $ref: "#/components/schemas/OrderDetail" } } } }
+  /api/orders/{id}/invoice:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [orders]
+      summary: Накладная по форме З-2 — HTML для печати (все сотрудники; кладовщику без цен)
+      description: ФТ-М-12. Поля сверим с образцом заказчика.
+      responses:
+        "200": { description: Страница накладной, content: { text/html: { schema: { type: string } } } }
+
+  # ─── Склад ──────────────────────────────────────────────────────────────────
+  /api/warehouse/stock:
+    get:
+      tags: [warehouse]
+      summary: Остатки и полки (все сотрудники)
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [in_stock, low, out] }, description: "low — ниже минимума, закупить; out — нет в наличии" }
+        - { name: search, in: query, schema: { type: string }, description: Слова без учёта регистра — название, фасовка, артикул или полка }
+        - { name: category_id, in: query, schema: { type: string } }
+      responses:
+        "200": { description: По полкам, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Stock" } } } } }
+  /api/warehouse/stock/{product_id}:
+    parameters: [{ name: product_id, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [warehouse]
+      summary: Минимальный остаток и полка (admin, warehouse)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { min_stock: { type: string, description: Пустая строка снимает минимум }, storage_location: { type: string } } }
+      responses:
+        "200": { description: Остаток, content: { application/json: { schema: { $ref: "#/components/schemas/Stock" } } } }
+  /api/warehouse/movements:
+    get:
+      tags: [warehouse]
+      summary: Журнал движений (все сотрудники)
+      parameters:
+        - { name: product_id, in: query, schema: { type: string } }
+        - { name: order_id, in: query, schema: { type: string } }
+        - { name: movement_type, in: query, schema: { type: string, enum: [in, out, adjustment, reserve, unreserve] } }
+        - { name: limit, in: query, schema: { type: integer, default: 200, maximum: 1000 } }
+      responses:
+        "200": { description: Новые сверху, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Movement" } } } } }
+    post:
+      tags: [warehouse]
+      summary: Приход, расход или корректировка (admin, warehouse)
+      description: Полка указывается при приёмке (ФТ-СК-05). Для расхода и корректировки причина обязательна (ФТ-СК-06).
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/CreateMovement" } } } }
+      responses:
+        "200": { description: Движение, content: { application/json: { schema: { $ref: "#/components/schemas/Movement" } } } }
+  /api/warehouse/assembly:
+    get:
+      tags: [warehouse]
+      summary: Очередь сборки (все сотрудники)
+      description: Подтверждённые и собранные заказы, срочные сверху, позиции по полкам (ФТ-СК-07). Без оплаты.
+      responses:
+        "200": { description: Очередь, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AssemblyOrder" } } } } }
+
+  # ─── Клиенты ────────────────────────────────────────────────────────────────
+  /api/clients:
+    get:
+      tags: [clients]
+      summary: База клиентов (admin, manager)
+      parameters:
+        - { name: search, in: query, schema: { type: string }, description: Имя или телефон }
+        - { name: client_type, in: query, schema: { $ref: "#/components/schemas/ClientType" } }
+        - { name: debtors, in: query, schema: { type: boolean }, description: Только с долгом }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200": { description: Список, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Client" } } } } }
+    post:
+      tags: [clients]
+      summary: Добавить клиента (admin, manager)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ClientInput" } } } }
+      responses:
+        "200": { description: Клиент, content: { application/json: { schema: { $ref: "#/components/schemas/Client" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/clients/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [clients]
+      summary: Карточка клиента — заказы и что берёт регулярно (admin, manager)
+      responses:
+        "200": { description: Клиент, content: { application/json: { schema: { $ref: "#/components/schemas/ClientCard" } } } }
+    patch:
+      tags: [clients]
+      summary: Изменить клиента (admin, manager)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/ClientInput" } } } }
+      responses:
+        "200": { description: Клиент, content: { application/json: { schema: { $ref: "#/components/schemas/Client" } } } }
+  /api/clients/{id}/prices:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [clients]
+      summary: Персональные цены клиента (admin, manager)
+      responses:
+        "200": { description: Список, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PersonalPrice" } } } } }
+  /api/clients/{id}/prices/{product_id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }, { name: product_id, in: path, required: true, schema: { type: string } }]
+    put:
+      tags: [clients]
+      summary: Завести или изменить персональную цену (admin)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [price], properties: { price: { type: string, example: "950.00" } } } } }
+      responses:
+        "200": { description: Все цены клиента, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PersonalPrice" } } } } }
+    delete:
+      tags: [clients]
+      summary: Убрать персональную цену (admin)
+      responses:
+        "200": { description: Все цены клиента, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/PersonalPrice" } } } } }
+  /api/clients/{id}/password:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [clients]
+      summary: Выдать клиенту пароль для входа (admin)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [password], properties: { password: { type: string, minLength: 6 } } } } }
+      responses:
+        "200": { description: Клиент, content: { application/json: { schema: { $ref: "#/components/schemas/Client" } } } }
+
+  # ─── Сотрудники ─────────────────────────────────────────────────────────────
+  /api/employees:
+    get:
+      tags: [employees]
+      summary: Сотрудники (все сотрудники; логины видит только admin)
+      responses:
+        "200": { description: Список, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Employee" } } } } }
+    post:
+      tags: [employees]
+      summary: Добавить сотрудника (admin)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EmployeeInput" } } } }
+      responses:
+        "200": { description: Сотрудник, content: { application/json: { schema: { $ref: "#/components/schemas/Employee" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/employees/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [employees]
+      summary: Изменить сотрудника, роль, пароль, отключить (admin)
+      description: Смена пароля, роли или отключение завершают все его сессии. Последнего владельца отключить нельзя — 409.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/EmployeeInput" } } } }
+      responses:
+        "200": { description: Сотрудник, content: { application/json: { schema: { $ref: "#/components/schemas/Employee" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ─── Профиль покупателя ─────────────────────────────────────────────────────
+  /api/me:
+    get:
+      tags: [me]
+      summary: Профиль — сколько заказов и сколько выкуплено (покупатель, ФТ-ЛК-01)
+      responses:
+        "200": { description: Профиль, content: { application/json: { schema: { $ref: "#/components/schemas/Client" } } } }
+    patch:
+      tags: [me]
+      summary: Изменить имя и город (покупатель)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, properties: { name: { type: string }, city: { type: string } } } } }
+      responses:
+        "200": { description: Профиль, content: { application/json: { schema: { $ref: "#/components/schemas/Client" } } } }
+  /api/me/orders:
+    get:
+      tags: [me]
+      summary: Мои заказы (покупатель)
+      responses:
+        "200": { description: Новые сверху, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Order" } } } } }
+
+  # ─── Дашборд и аналитика ────────────────────────────────────────────────────
+  /api/dashboard:
+    get:
+      tags: [analytics]
+      summary: Главный экран CRM (admin, manager; ФТ-В-01)
+      parameters: [{ $ref: "#/components/parameters/Period" }]
+      responses:
+        "200": { description: Сводка, content: { application/json: { schema: { $ref: "#/components/schemas/Dashboard" } } } }
+  /api/analytics:
+    get:
+      tags: [analytics]
+      summary: Раздел аналитики (admin; ФТ-В-04)
+      parameters: [{ $ref: "#/components/parameters/Period" }]
+      responses:
+        "200": { description: Аналитика, content: { application/json: { schema: { $ref: "#/components/schemas/Analytics" } } } }
+  /api/analytics/visit:
+    post:
+      tags: [analytics]
+      summary: Сайт сообщает о просмотре страницы
+      description: Устройство, браузер и система определяются по User-Agent. IP не хранится.
+      security: [{}, { bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path: { type: string, example: /catalog }
+                referrer: { type: string }
+                session_id: { type: string, description: Случайный идентификатор вкладки — для подсчёта посетителей }
+      responses:
+        "200": { description: OK }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string } }
+    ItemId: { name: item_id, in: path, required: true, schema: { type: string } }
+    Period:
+      name: period
+      in: query
+      description: По времени Казахстана (UTC+5). Неделя — с понедельника.
+      schema: { type: string, enum: [today, week, month, all], default: week }
+
+  responses:
+    BadRequest: { description: Неверные данные, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Unauthorized: { description: Нужен вход или сессия истекла, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    NotFound: { description: Не найдено, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    Conflict: { description: Действие противоречит состоянию, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    TooManyRequests: { description: Слишком много неверных попыток входа, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  schemas:
+    Error:
+      type: object
+      properties: { error: { type: string, example: "заказ оплачен — сначала оформите возврат, затем отмену" } }
+
+    Money: { type: string, example: "1880.00", description: Тенге с двумя знаками }
+    Qty: { type: string, example: "2.500", description: Количество с тремя знаками }
+
+    OrderStatus:
+      type: string
+      enum: [new, confirmed, assembled, handed_over, shipped, delivered, completed, cancelled]
+      description: Новый, Подтверждён, Собран, Передан в доставку (выдан), Отправлен, Доставлен, Завершён, Отменён
+    PaymentStatus: { type: string, enum: [unpaid, partial, paid, refunded] }
+    PaymentMethod: { type: string, enum: [none, cash, kaspi_transfer], description: Онлайн-оплаты нет (ФТ-П-01) }
+    Channel: { type: string, enum: [site, site_legacy, whatsapp, instagram, phone, other] }
+    DeliveryMethod: { type: string, enum: [pickup, courier, cdek, kazpost] }
+    ClientType: { type: string, enum: [home_baker, bakery, cafe, shop, other] }
+    Role: { type: string, enum: [admin, manager, warehouse], description: admin — владелец }
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [admin, manager, warehouse, client] }
+    Session:
+      type: object
+      properties:
+        token: { type: string }
+        expires_at: { type: string }
+        kind: { type: string, enum: [employee, client] }
+        user: { $ref: "#/components/schemas/User" }
+
+    Category:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        parent_id: { type: string, nullable: true }
+        sort_order: { type: integer }
+        created_at: { type: string }
+        products_count: { type: integer, description: Товаров в продаже }
+    CategoryInput:
+      type: object
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        parent_id: { type: string }
+        sort_order: { type: integer }
+
+    Attribute:
+      type: object
+      required: [name, value]
+      properties:
+        name: { type: string, example: "Какао" }
+        value: { type: string, example: "54,5 %" }
+    Product:
+      type: object
+      properties:
+        id: { type: string }
+        category_id: { type: string }
+        name: { type: string }
+        sku: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        price: { $ref: "#/components/schemas/Money" }
+        unit: { type: string, example: шт }
+        is_weight: { type: boolean }
+        stock_qty: { $ref: "#/components/schemas/Qty" }
+        available_qty: { $ref: "#/components/schemas/Qty" }
+        stock_status: { type: string, enum: [in_stock, low, out] }
+        min_order: { $ref: "#/components/schemas/Qty" }
+        order_step: { $ref: "#/components/schemas/Qty" }
+        image_url: { type: string, nullable: true }
+        image_name: { type: string, nullable: true, description: Имя будущего файла фото из таблицы заказчика }
+        is_archived: { type: boolean }
+        group_id: { type: string, nullable: true, description: Фасовки одной карточки делят group_id }
+        variant_name: { type: string, nullable: true, example: "500 г" }
+        wholesale_price: { allOf: [{ $ref: "#/components/schemas/Money" }], nullable: true, description: "null, пока опт выключен (WHOLESALE_ENABLED)" }
+        wholesale_min_qty: { type: integer, nullable: true }
+        storage_location: { type: string, nullable: true, example: "Склад А / стеллаж 1 / полка 2" }
+        personal_price: { allOf: [{ $ref: "#/components/schemas/Money" }], nullable: true, description: Цена вошедшего клиента — показывать вместо price }
+        attributes: { type: array, items: { $ref: "#/components/schemas/Attribute" } }
+    ProductInput:
+      type: object
+      description: При создании обязательны category_id, name, price. При правке — только меняемое.
+      properties:
+        category_id: { type: string }
+        name: { type: string }
+        sku: { type: string }
+        description: { type: string }
+        price: { $ref: "#/components/schemas/Money" }
+        unit: { type: string, default: шт }
+        is_weight: { type: boolean }
+        min_order: { allOf: [{ $ref: "#/components/schemas/Qty" }], description: "По умолчанию 1" }
+        order_step: { allOf: [{ $ref: "#/components/schemas/Qty" }], description: "По умолчанию 1" }
+        min_stock: { $ref: "#/components/schemas/Qty" }
+        group_id: { type: string, description: Карточка, к которой относится фасовка }
+        variant_name: { type: string }
+        wholesale_price: { $ref: "#/components/schemas/Money" }
+        wholesale_min_qty: { type: integer }
+        storage_location: { type: string }
+        image_url: { type: string }
+        image_name: { type: string }
+        attributes: { type: array, items: { $ref: "#/components/schemas/Attribute" } }
+        stock: { allOf: [{ $ref: "#/components/schemas/Qty" }], description: Только при создании — оформляется приходом }
+
+    Order:
+      type: object
+      properties:
+        id: { type: string }
+        order_no: { type: string, example: "1025" }
+        client_id: { type: string, nullable: true }
+        client_name: { type: string }
+        client_phone: { type: string, nullable: true }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        items_total: { $ref: "#/components/schemas/Money" }
+        delivery: { $ref: "#/components/schemas/Money" }
+        total: { $ref: "#/components/schemas/Money" }
+        paid: { allOf: [{ $ref: "#/components/schemas/Money" }], description: Нет у кладовщика }
+        due: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "К оплате. У отменённого и после возврата — 0. Нет у кладовщика" }
+        overpaid: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "Переплата после правки состава или доставки — вернуть разницу. Есть только при переплате, нет у кладовщика" }
+        payment_method: { allOf: [{ $ref: "#/components/schemas/PaymentMethod" }], description: Нет у кладовщика }
+        payment_status: { allOf: [{ $ref: "#/components/schemas/PaymentStatus" }], description: "Нет у кладовщика. После правки состава или доставки пересчитывается по сумме: оплачено не меньше итога — paid, меньше — partial" }
+        channel: { $ref: "#/components/schemas/Channel" }
+        city: { type: string, nullable: true }
+        delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
+        delivery_address: { type: string, nullable: true }
+        is_urgent: { type: boolean }
+        is_problem: { type: boolean }
+        problem_note: { type: string, nullable: true, example: "Не хватает: Сливки 33 % — 1.000 шт" }
+        note: { type: string, nullable: true }
+        source: { type: string, nullable: true }
+        assigned_to: { type: string, nullable: true }
+        assigned_name: { type: string, nullable: true }
+        cancelled_reason: { type: string, nullable: true }
+        created_at: { type: string }
+        updated_at: { type: string }
+    OrderItem:
+      type: object
+      properties:
+        id: { type: string }
+        product_id: { type: string, nullable: true, description: "null — товара больше нет в каталоге, строка хранит снимок" }
+        product_name: { type: string }
+        product_sku: { type: string, nullable: true }
+        unit: { type: string }
+        price: { $ref: "#/components/schemas/Money" }
+        quantity: { $ref: "#/components/schemas/Qty" }
+        discount_percent: { type: integer }
+        price_kind: { type: string, nullable: true, enum: [retail, wholesale, personal] }
+        subtotal: { $ref: "#/components/schemas/Money" }
+        picked: { type: boolean }
+        short_qty: { $ref: "#/components/schemas/Qty" }
+        storage_location: { type: string, nullable: true }
+        available_qty: { allOf: [{ $ref: "#/components/schemas/Qty" }], nullable: true }
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [created, status, payment, items, picking, problem, urgent, delivery, assigned, comment] }
+        message: { type: string, example: "Статус: Подтверждён" }
+        amount: { allOf: [{ $ref: "#/components/schemas/Money" }], nullable: true, description: Сумма оплаты или возврата }
+        actor_kind: { type: string, enum: [employee, client, system] }
+        actor_name: { type: string, nullable: true }
+        created_at: { type: string }
+    OrderBrief:
+      type: object
+      properties:
+        id: { type: string }
+        order_no: { type: string, nullable: true }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        total: { $ref: "#/components/schemas/Money" }
+        created_at: { type: string }
+    OrderDetail:
+      allOf:
+        - { $ref: "#/components/schemas/Order" }
+        - type: object
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/OrderItem" } }
+            events: { type: array, items: { $ref: "#/components/schemas/Event" }, description: Только для сотрудника }
+            client_orders: { type: array, items: { $ref: "#/components/schemas/OrderBrief" }, description: Другие заказы клиента, только admin и manager }
+    CreateOrder:
+      type: object
+      required: [client_name, client_phone, items]
+      properties:
+        client_name: { type: string }
+        client_phone: { type: string }
+        client_id: { type: string, description: Только сотрудник — заказ за клиента с его ценами }
+        source: { allOf: [{ $ref: "#/components/schemas/Channel" }], description: Только сотрудник. С сайта всегда site }
+        city: { type: string, example: Астана }
+        delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
+        delivery_address: { type: string, description: Обязателен для доставки с сайта (ФТ-О-02) }
+        delivery: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "Только сотрудник. Для заказа с сайта сервер считает сам: самовывоз — 0, курьер по Астане — 1200, остальное — 2500" }
+        payment_method: { $ref: "#/components/schemas/PaymentMethod" }
+        note: { type: string }
+        is_urgent: { type: boolean, description: Только сотрудник }
+        assigned_to: { type: string, description: Только сотрудник }
+        items:
+          type: array
+          items: { type: object, required: [product_id, quantity], properties: { product_id: { type: string }, quantity: { $ref: "#/components/schemas/Qty" } } }
+    UpdateOrder:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        cancelled_reason: { type: string }
+        assigned_to: { type: string, description: Пустая строка снимает ответственного }
+        is_urgent: { type: boolean }
+        is_problem: { type: boolean }
+        problem_note: { type: string }
+        note: { type: string }
+        city: { type: string }
+        delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
+        delivery_address: { type: string }
+        delivery: { $ref: "#/components/schemas/Money" }
+    ConfirmPayment:
+      type: object
+      required: [payment_status]
+      properties:
+        payment_status: { $ref: "#/components/schemas/PaymentStatus" }
+        payment_method: { type: string, enum: [cash, kaspi_transfer], description: Обязателен для paid и partial }
+        paid: { allOf: [{ $ref: "#/components/schemas/Money" }], description: "paid — по умолчанию итог; partial — обязательно, меньше итога" }
+    Tracking:
+      type: object
+      properties:
+        order_no: { type: string }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        status_title: { type: string, example: Собран }
+        created_at: { type: string }
+        delivery_method: { $ref: "#/components/schemas/DeliveryMethod" }
+        city: { type: string, nullable: true }
+        total: { $ref: "#/components/schemas/Money" }
+        payment_status: { $ref: "#/components/schemas/PaymentStatus" }
+        items: { type: array, items: { type: object, properties: { name: { type: string }, quantity: { type: string }, unit: { type: string } } } }
+        history: { type: array, items: { type: object, properties: { status: { type: string }, title: { type: string }, at: { type: string } } } }
+
+    Stock:
+      type: object
+      properties:
+        product_id: { type: string }
+        product_name: { type: string }
+        sku: { type: string, nullable: true }
+        variant_name: { type: string, nullable: true }
+        category_id: { type: string }
+        unit: { type: string }
+        stock_qty: { $ref: "#/components/schemas/Qty" }
+        reserved_qty: { $ref: "#/components/schemas/Qty" }
+        available_qty: { $ref: "#/components/schemas/Qty" }
+        min_stock_qty: { allOf: [{ $ref: "#/components/schemas/Qty" }], nullable: true }
+        low_stock: { type: boolean }
+        status: { type: string, enum: [in_stock, low, out] }
+        storage_location: { type: string, nullable: true }
+        updated_at: { type: string }
+    Movement:
+      type: object
+      properties:
+        id: { type: string }
+        product_id: { type: string }
+        product_name: { type: string, nullable: true }
+        movement_type: { type: string, enum: [in, out, adjustment, reserve, unreserve] }
+        quantity: { type: string, description: Со знаком }
+        reason: { type: string, nullable: true }
+        order_id: { type: string, nullable: true }
+        employee_id: { type: string, nullable: true }
+        employee_name: { type: string, nullable: true }
+        storage_location: { type: string, nullable: true }
+        created_at: { type: string }
+    CreateMovement:
+      type: object
+      required: [product_id, movement_type, quantity]
+      properties:
+        product_id: { type: string }
+        movement_type: { type: string, enum: [in, out, adjustment] }
+        quantity: { type: string, example: "-1", description: Для adjustment допускается минус }
+        reason: { type: string, example: "накладная КО-2214", description: Обязательна для out и adjustment }
+        storage_location: { type: string }
+    AssemblyOrder:
+      allOf:
+        - { $ref: "#/components/schemas/Order" }
+        - type: object
+          properties:
+            items: { type: array, items: { $ref: "#/components/schemas/OrderItem" }, description: По полкам }
+            picked_count: { type: integer, description: Сколько позиций собрано }
+            items_count: { type: integer, description: Сколько позиций всего }
+
+    Client:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        client_type: { $ref: "#/components/schemas/ClientType" }
+        note: { type: string, nullable: true }
+        created_at: { type: string }
+        last_login_at: { type: string, nullable: true }
+        has_account: { type: boolean }
+        orders_count: { type: integer, description: Без отменённых }
+        orders_total: { $ref: "#/components/schemas/Money" }
+        bought_total: { allOf: [{ $ref: "#/components/schemas/Money" }], description: Выкуплено — переданные и дальше }
+        debt: { $ref: "#/components/schemas/Money" }
+        last_order_at: { type: string, nullable: true }
+        channels: { type: array, items: { type: string } }
+        personal_prices: { type: integer }
+    ClientCard:
+      allOf:
+        - { $ref: "#/components/schemas/Client" }
+        - type: object
+          properties:
+            orders: { type: array, items: { $ref: "#/components/schemas/OrderBrief" } }
+            top_products: { type: array, items: { type: object, properties: { product_name: { type: string }, quantity: { type: string }, orders: { type: integer } } } }
+    ClientInput:
+      type: object
+      properties:
+        name: { type: string }
+        phone: { type: string }
+        city: { type: string }
+        client_type: { $ref: "#/components/schemas/ClientType" }
+        note: { type: string }
+    PersonalPrice:
+      type: object
+      properties:
+        product_id: { type: string }
+        product_name: { type: string }
+        sku: { type: string, nullable: true }
+        variant_name: { type: string, nullable: true }
+        retail_price: { $ref: "#/components/schemas/Money" }
+        price: { $ref: "#/components/schemas/Money" }
+
+    Employee:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        login: { type: string, description: Только для admin }
+        phone: { type: string, nullable: true }
+        is_active: { type: boolean }
+        last_login_at: { type: string, nullable: true }
+    EmployeeInput:
+      type: object
+      description: При создании обязательны name, login, role, password.
+      properties:
+        name: { type: string }
+        login: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        password: { type: string, minLength: 6 }
+        phone: { type: string }
+        is_active: { type: boolean }
+
+    Named:
+      type: object
+      properties: { key: { type: string }, count: { type: integer }, sum: { $ref: "#/components/schemas/Money" } }
+    CountSum:
+      type: object
+      properties: { count: { type: integer }, sum: { $ref: "#/components/schemas/Money" } }
+    TopItem:
+      type: object
+      properties: { name: { type: string }, quantity: { type: string }, orders: { type: integer }, sum: { $ref: "#/components/schemas/Money" } }
+    Dashboard:
+      type: object
+      properties:
+        period: { type: string }
+        from: { type: string, nullable: true }
+        orders: { $ref: "#/components/schemas/CountSum" }
+        new_orders: { type: integer }
+        awaiting_payment: { $ref: "#/components/schemas/CountSum" }
+        awaiting_payment_share: { type: number, example: 0.58 }
+        payments_received: { $ref: "#/components/schemas/Money" }
+        urgent: { type: integer }
+        problem: { type: integer }
+        low_stock_count: { type: integer }
+        out_of_stock_count: { type: integer }
+        low_stock:
+          type: array
+          items: { type: object, properties: { product_id: { type: string }, name: { type: string }, available: { type: string }, min_stock: { type: string, nullable: true }, unit: { type: string } } }
+        by_status: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        by_channel: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        top_products: { type: array, items: { $ref: "#/components/schemas/TopItem" } }
+    Analytics:
+      type: object
+      properties:
+        period: { type: string }
+        from: { type: string, nullable: true }
+        orders_by_channel: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        orders_by_city: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        orders_by_client_type: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        cancelled: { $ref: "#/components/schemas/CountSum" }
+        cancel_reasons: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        top_products: { type: array, items: { $ref: "#/components/schemas/TopItem" } }
+        top_categories: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        visits: { type: integer }
+        visitors: { type: integer }
+        by_device: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        by_browser: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        by_os: { type: array, items: { $ref: "#/components/schemas/Named" } }
+        site_conversion: { type: number, description: Заказы с сайта на 100 посетителей }
+        new_clients: { type: integer }
+        repeat_clients: { type: integer }
+        last_logins:
+          type: array
+          items: { type: object, properties: { id: { type: string }, name: { type: string }, last_login_at: { type: string } } }
