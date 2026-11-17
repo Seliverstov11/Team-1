@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include head.html -->
+  <title>Товар — Bakeloom</title>
+</head>
+<body data-page="product">
+<!-- @include layout-start.html -->
+
+<main id="main" x-data="productPage" x-effect="if (p) document.title = `${p.name} — Bakeloom`" class="vt-content flex flex-col gap-6">
+  <nav class="text-xs font-light text-ink-muted" aria-label="Хлебные крошки">
+    <a href="/" class="hover:text-brand-gold">Главная</a> <span class="mx-1.5">/</span>
+    <a href="/catalog.html" class="hover:text-brand-gold">Каталог</a>
+    <template x-if="p">
+      <span><span class="mx-1.5">/</span><a :href="`/catalog.html?category=${$store.shop.category(p.category_id).slug}`" class="hover:text-brand-gold" x-text="$store.shop.category(p.category_id).name"></a></span>
+    </template>
+  </nav>
+
+  <!-- @include loading.html -->
+
+  <div x-show="$store.shop.ready && !$store.shop.error && !p" x-cloak class="card px-8 py-14 text-center">
+    <p class="font-heading text-[1.625rem]">Товар не найден</p>
+    <p class="mt-2 text-sm font-light text-ink-muted">Возможно, ссылка устарела</p>
+    <a href="/catalog.html" class="btn-outline mt-6">Перейти в каталог</a>
+  </div>
+
+  <template x-if="p">
+    <div class="flex flex-col gap-12">
+      <section class="card grid grid-cols-1 gap-[clamp(1.5rem,4vw,3.5rem)] p-3 sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div class="relative aspect-square overflow-hidden rounded-2xl">
+          <!-- @include product-image.html -->
+        </div>
+
+        <div class="flex flex-col px-2 pb-3 md:py-4 md:pl-0 md:pr-4">
+          <p class="caps text-[0.625rem] tracking-[0.18em] text-brand-gold" x-text="$store.shop.category(p.category_id).name"></p>
+          <h1 class="mt-3 text-balance font-heading text-[clamp(1.875rem,2.6vw,2.75rem)] font-medium leading-tight" x-text="p.name"></h1>
+          <p class="mt-2 text-xs tracking-wider text-ink-muted" x-text="`Арт. ${p.sku}`"></p>
+
+          <!-- Фасовки одной карточки: у каждой свои цена, остаток и артикул -->
+          <div x-show="card?.multi" class="mt-6">
+            <p class="text-[0.8125rem] font-light text-ink-muted">Фасовка</p>
+            <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Фасовка">
+              <template x-for="v in card?.variants ?? []" :key="v.id">
+                <button type="button" role="radio" :aria-checked="v.id === p.id" @click="pick(v)"
+                        class="flex min-w-[6.5rem] flex-col items-start rounded-control border px-3.5 py-2 text-left transition"
+                        :class="v.id === p.id ? 'border-brand-dark bg-brand-dark text-brand-light' : 'border-line hover:border-brand-gold'">
+                  <span class="text-[0.8125rem] font-medium" :class="!bl.inStock(v) && v.id !== p.id && 'text-ink-placeholder line-through'" x-text="v.variant_name"></span>
+                  <span class="text-[0.6875rem]" :class="v.id === p.id ? 'text-brand-gold-light' : 'text-ink-muted'"
+                        x-text="bl.inStock(v) ? $store.fmt.money(bl.retail(v)) : 'нет в наличии'"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <p class="mt-8 font-heading text-[2.5rem] font-semibold leading-none" x-text="$store.fmt.money(bl.retail(p))"></p>
+          <p class="mt-1 text-xs font-light text-ink-muted" x-text="`за 1 ${p.unit}`"></p>
+          <!-- Договорная цена — только вошедшему покупателю, её отдаёт сервер в personal_price -->
+          <p x-show="bl.isPersonal(p)" class="mt-3 w-fit rounded-control bg-brand-gold-soft px-3 py-2 text-[0.8125rem]">
+            Ваша цена по договорённости · на сайте <span class="line-through" x-text="$store.fmt.money(bl.basePrice(p))"></span>
+          </p>
+          <p x-show="p.description" class="mt-5 max-w-[34rem] text-[0.8125rem] font-light leading-relaxed text-ink-muted" x-text="p.description"></p>
+
+          <dl class="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 border-y border-line py-5 text-sm sm:mt-8 sm:gap-x-8">
+            <dt class="font-light text-ink-muted">Наличие</dt>
+            <dd :class="bl.inStock(p) ? 'text-success' : 'text-error'"
+                x-text="bl.inStock(p) ? `В наличии: ${$store.fmt.qty(p.available_qty)} ${p.unit}` : 'Нет в наличии'"></dd>
+            <dt class="font-light text-ink-muted">Единица продажи</dt>
+            <dd x-text="p.unit"></dd>
+          </dl>
+
+          <div class="mt-6 grid gap-1 sm:mt-8 sm:max-w-[22rem]">
+            <!-- @include buy-box.html -->
+          </div>
+          <div class="mt-4 flex items-center gap-3 text-[0.8125rem] font-light">
+            <!-- @include fav-button.html -->
+            <span x-text="$store.fav.has(p.group_id || p.id) ? 'В избранном' : 'Добавить в избранное'"></span>
+          </div>
+          <a href="/cart.html" x-show="$store.cart.qty(p.id)" x-cloak class="mt-4 text-[0.8125rem] underline underline-offset-4 hover:text-brand-gold"
+             x-text="`В корзине: ${$store.cart.qty(p.id)} ${p.unit} — перейти в корзину`"></a>
+        </div>
+      </section>
+
+      <!-- Характеристики — из attributes: у каждого товара свой набор (ФТ-Т-03, ФТ-Т-04) -->
+      <section x-show="p.attributes?.length" class="card px-5 py-6 sm:px-8 sm:py-7">
+        <h2 class="font-heading text-[1.75rem] font-medium">Характеристики</h2>
+        <dl class="mt-4 grid max-w-[48rem] grid-cols-1 text-sm sm:grid-cols-[minmax(10rem,auto)_1fr]">
+          <template x-for="a in p.attributes" :key="a.name">
+            <div class="contents">
+              <dt class="border-t border-line pt-3 font-light text-ink-muted sm:pb-3 sm:pr-8" x-text="a.name"></dt>
+              <dd class="pb-3 sm:border-t sm:border-line sm:pt-3" x-text="a.value"></dd>
+            </div>
+          </template>
+        </dl>
+      </section>
+
+      <section x-show="related.length" x-data="{ get cards() { return related } }">
+        <h2 class="mb-6 font-heading text-[2rem] font-medium">Ещё в категории</h2>
+        <!-- @include product-grid.html -->
+      </section>
+    </div>
+  </template>
+</main>
+
+<!-- @include layout-end.html -->
+</body>
+</html>

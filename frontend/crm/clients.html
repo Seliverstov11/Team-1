@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Клиенты — Bakeloom CRM</title>
+</head>
+<body data-page="clients">
+<!-- @include crm-layout-start.html -->
+
+<main id="main" x-data="crmClients" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div>
+    <h1 class="crm-title text-balance">Клиенты</h1>
+    <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.fmt.count(rows.length, 'клиент', 'клиента', 'клиентов')} · карточка заводится сама по телефону из заказа`"></p>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <input type="search" x-model.debounce.200ms="q" class="crm-field w-full sm:w-72" placeholder="Имя, телефон, город" aria-label="Поиск клиента" />
+    <select x-model="sort" class="crm-field" aria-label="Сортировка">
+      <option value="sum">По сумме заказов</option>
+      <option value="due">По долгу</option>
+      <option value="last">По последнему заказу</option>
+    </select>
+    <label class="flex items-center gap-2 text-[0.8125rem]"><input type="checkbox" x-model="debtors" class="accent-brand-dark" /> Только с долгом</label>
+  </div>
+
+  <p x-show="error" x-cloak role="alert" class="rounded-card bg-error-soft px-5 py-3 text-[0.8125rem] text-error" x-text="error"></p>
+
+  <section class="crm-card overflow-hidden">
+    <div class="overflow-x-auto"><table class="crm-table">
+      <thead><tr><th>Клиент</th><th>Тип</th><th>Город</th><th>Каналы</th><th class="text-right">Заказов</th><th class="text-right">Сумма</th><th class="text-right">Выкуплено</th><th class="text-right">Долг</th><th>Последний</th></tr></thead>
+      <tbody>
+        <template x-for="c in rows" :key="c.id">
+          <tr class="cursor-pointer transition hover:bg-brand-light/60" @click="location.href = `/crm/orders.html?q=${encodeURIComponent(c.phone ?? c.name)}`">
+            <td>
+              <span class="block whitespace-nowrap font-medium" x-text="c.name"></span>
+              <span class="text-[0.6875rem] text-ink-muted" x-text="c.phone ?? '—'"></span>
+              <span x-show="c.has_account" class="ml-1 text-[0.625rem] text-success" title="Зарегистрирован на сайте">· на сайте</span>
+              <span x-show="c.personal_prices" class="ml-1 text-[0.625rem] text-brand-gold" x-text="`· свои цены: ${c.personal_prices}`"></span>
+            </td>
+            <td class="whitespace-nowrap text-[0.75rem] text-ink-muted" x-text="types[c.client_type] ?? '—'"></td>
+            <td class="whitespace-nowrap text-ink-muted" x-text="c.city ?? '—'"></td>
+            <td><div class="flex flex-wrap gap-1"><template x-for="ch in c.channels" :key="ch"><span class="whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-[0.625rem]" x-text="$store.crm.channels[ch] ?? ch"></span></template></div></td>
+            <td class="text-right" x-text="c.orders_count"></td>
+            <td class="whitespace-nowrap text-right font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(c.orders_total))"></td>
+            <td class="whitespace-nowrap text-right text-ink-muted" x-text="$store.fmt.money($store.fmt.tiyn(c.bought_total))"></td>
+            <td class="whitespace-nowrap text-right" :class="$store.fmt.tiyn(c.debt) ? 'font-semibold text-error' : 'text-ink-muted'" x-text="$store.fmt.tiyn(c.debt) ? $store.fmt.money($store.fmt.tiyn(c.debt)) : '—'"></td>
+            <td class="whitespace-nowrap text-[0.75rem] text-ink-muted" x-text="c.last_order_at ? $store.fmt.date(c.last_order_at) : '—'"></td>
+          </tr>
+        </template>
+        <tr x-show="loading"><td colspan="9" class="py-12 text-center text-ink-muted">Загружаем…</td></tr>
+        <tr x-show="!loading && !rows.length"><td colspan="9" class="py-12 text-center text-ink-muted">Клиентов не найдено</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>

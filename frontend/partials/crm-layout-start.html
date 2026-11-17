@@ -1,0 +1,98 @@
+<a href="#main" class="sr-only z-[60] rounded-control bg-brand-dark px-4 py-2 text-brand-light focus:not-sr-only focus:fixed focus:left-3 focus:top-3">К содержимому</a>
+
+<div x-data class="flex min-h-dvh">
+
+  <!-- Затемнение под выдвижным меню (экраны уже 1024px) -->
+  <div x-show="$store.crm.drawer" x-cloak x-transition.opacity class="fixed inset-0 z-40 bg-ink/45 backdrop-blur-[2px] lg:hidden" @click="$store.crm.closeDrawer()" aria-hidden="true"></div>
+
+  <!-- ===================== Боковое меню CRM ===================== -->
+  <aside id="crm-menu" class="vt-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(16rem,86vw)] flex-col overflow-y-auto overscroll-contain [scrollbar-color:rgb(255_255_255/0.18)_transparent] [scrollbar-width:thin] bg-crm-sidebar px-3 py-6 text-on-dark transition-transform duration-300 motion-reduce:transition-none
+                lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-62 lg:shrink-0 lg:translate-x-0 lg:transition-none"
+         :class="$store.crm.drawer ? 'translate-x-0 shadow-lift' : '-translate-x-full invisible lg:visible'"
+         @keydown.escape.window="$store.crm.closeDrawer()" aria-label="Меню CRM">
+    <button type="button" data-close class="absolute right-2 top-2 grid size-10 place-items-center rounded-full text-on-dark/80 transition hover:bg-white/10 hover:text-brand-light lg:hidden"
+            @click="$store.crm.closeDrawer()" aria-label="Закрыть меню">
+      <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+    <a href="/crm/" class="flex items-center gap-3 px-3">
+      <img src="/img/logo.svg" alt="" class="h-11 w-auto" />
+      <span>
+        <span class="block font-heading text-2xl leading-none text-brand-light">Bakeloom</span>
+        <span class="caps mt-1 block text-[0.5625rem] tracking-[0.2em] text-brand-gold" x-text="$store.crm.user.app"></span>
+      </span>
+    </a>
+
+    <nav class="mt-9 flex flex-col gap-6" aria-label="Разделы CRM">
+      <template x-for="g in $store.crm.nav" :key="g.group">
+        <div>
+          <p class="caps px-3 text-[0.5625rem] tracking-[0.2em] text-on-dark-muted" x-text="g.group"></p>
+          <ul class="mt-2 space-y-0.5">
+            <template x-for="i in g.items" :key="i.page">
+              <li>
+                <a :href="i.href" class="crm-nav-link" :class="($store.crm.page === i.page || ($store.crm.page === 'order' && i.page === 'orders')) && 'is-active'" :aria-current="$store.crm.page === i.page && 'page'">
+                  <template x-if="i.icon === 'home'"><svg class="size-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg></template>
+                  <template x-if="i.icon === 'orders'"><svg class="size-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3"/></svg></template>
+                  <template x-if="i.icon === 'clients'"><svg class="size-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21c.8-3.6 3.6-6 7-6s6.2 2.4 7 6M16 3.5a4 4 0 0 1 0 7M18.5 15c1.8.9 3 2.9 3.5 6"/></svg></template>
+                  <template x-if="i.icon === 'stock'"><svg class="size-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3 4 7v10l8 4 8-4V7zM4 7l8 4 8-4M12 11v10"/></svg></template>
+                  <template x-if="i.icon === 'catalog'"><svg class="size-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 16.5h7M16.5 13v7"/></svg></template>
+                  <template x-if="i.icon === 'picking'"><svg class="size-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M9 4h6v3H9zM7 5.5H5V21h14V5.5h-2M8.5 13l2.5 2.5 4.5-5"/></svg></template>
+                  <span class="flex-1" x-text="i.label"></span>
+                  <span x-show="i.badge && $store.crm.badge(i.badge)" class="counter" x-text="$store.crm.badge(i.badge)"></span>
+                </a>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+    </nav>
+
+    <!-- Пользователь: кто вошёл и выход -->
+    <div class="relative mt-auto border-t border-crm-sidebar-active pt-4" x-data="{ open: false }" @click.outside="open = false">
+      <button type="button" class="flex w-full items-center gap-3 rounded-control px-3 py-2 text-left transition hover:bg-white/5" @click="open = !open" :aria-expanded="open">
+        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-brand-gold text-[0.8125rem] font-semibold text-crm-sidebar" x-text="$store.fmt.initials($store.crm.user.name || '?')"></span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-[0.8125rem] text-brand-light" x-text="$store.crm.user.name"></span>
+          <span class="block truncate text-[0.6875rem] text-on-dark-muted" x-text="$store.crm.user.title"></span>
+        </span>
+        <svg class="size-3.5 text-on-dark-muted" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m4 10 4-4 4 4"/></svg>
+      </button>
+      <div x-show="open" x-cloak x-transition.opacity class="absolute inset-x-0 bottom-full mb-2 rounded-card bg-surface p-2 text-ink shadow-lift">
+        <button type="button" class="flex w-full items-center gap-3 rounded-control px-3 py-2 text-left text-[0.8125rem] transition hover:bg-brand-light" @click="$store.crm.logout()">
+          <svg class="size-4 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
+          Выйти
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== Основная колонка ===================== -->
+  <div class="flex min-w-0 flex-1 flex-col" :inert="$store.crm.drawer">
+    <header class="vt-topbar sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-brand-light/90 px-4 backdrop-blur sm:gap-4 sm:px-6 xl:px-8">
+      <button type="button" class="grid size-10 shrink-0 place-items-center rounded-control border border-line bg-surface transition hover:border-brand-gold lg:hidden"
+              @click="$store.crm.openDrawer()" aria-controls="crm-menu" :aria-expanded="$store.crm.drawer" aria-label="Открыть меню">
+        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      </button>
+      <form x-show="$store.crm.can('office')" action="/crm/orders.html" method="get" role="search" class="relative min-w-0 flex-1 sm:max-w-[26rem]">
+        <label class="sr-only" for="crm-q">Поиск заказа</label>
+        <svg class="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="crm-q" name="q" type="search" placeholder="Поиск заказа: №, клиент, телефон, город"
+               class="h-10 w-full rounded-control border border-line bg-surface pl-11 pr-4 text-[0.8125rem] outline-none placeholder:text-ink-placeholder focus:border-brand-gold" />
+      </form>
+      <span x-show="!$store.crm.can('office')" class="min-w-0 flex-1"></span>
+      <span class="ml-auto hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1 text-[0.6875rem] md:inline-flex"
+            :class="$store.crm.error ? 'bg-error-soft text-error' : 'bg-success-soft text-success'"
+            :title="$store.crm.error ? 'Backend недоступен' : 'Сайт и CRM работают с одной базой — backend API'">
+        <span class="size-1.5 rounded-full bg-current"></span><span x-text="$store.crm.error ? 'Нет связи с backend' : 'Backend подключён'"></span>
+      </span>
+      <button type="button" x-show="$store.pwa.canInstall" x-cloak @click="$store.pwa.install()"
+              class="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-control border border-brand-gold bg-brand-gold-soft px-3 text-[0.75rem] transition hover:bg-brand-gold hover:text-surface"
+              title="Значок на рабочем столе, отдельное окно без адресной строки">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/></svg>
+        <span class="hidden xl:inline">Установить приложение</span><span class="xl:hidden">Установить</span>
+      </button>
+      <a href="/" target="_blank" rel="noopener" class="shrink-0 whitespace-nowrap text-[0.75rem] text-ink-muted hover:text-brand-gold"><span class="hidden sm:inline">Открыть сайт </span>↗<span class="sr-only sm:hidden">Открыть сайт</span></a>
+      <span class="hidden shrink-0 whitespace-nowrap text-[0.75rem] text-ink-muted first-letter:uppercase xl:inline" x-text="new Date().toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })"></span>
+    </header>
+
+    <p x-show="$store.crm.error" x-text="$store.crm.error" x-cloak class="px-4 py-10 text-error sm:px-8"></p>
+    <p x-show="!$store.crm.ready" class="px-4 py-10 sm:px-8 text-sm font-light text-ink-muted" role="status">Загружаем данные…</p>

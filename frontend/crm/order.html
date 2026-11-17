@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Заказ — Bakeloom CRM</title>
+</head>
+<body data-page="order">
+<!-- @include crm-layout-start.html -->
+
+<main id="main" x-data="crmOrder" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8"
+      x-effect="if (o) document.title = `Заказ № ${o.order_no} — Bakeloom CRM`">
+  <p x-show="loading" class="text-sm font-light text-ink-muted" role="status">Загружаем заказ…</p>
+  <template x-if="!loading && (notFound || (!o && error))">
+    <div class="crm-card px-8 py-14 text-center">
+      <p class="font-heading text-[1.625rem]" x-text="notFound ? 'Заказ не найден' : error"></p>
+      <a href="/crm/orders.html" class="btn-primary mt-6">К списку заказов</a>
+    </div>
+  </template>
+
+  <template x-if="o">
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+      <div>
+        <nav class="text-[0.75rem] text-ink-muted"><a href="/crm/orders.html" class="hover:text-brand-gold">Заказы</a> / <span x-text="`№ ${o.order_no}`"></span></nav>
+        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 class="crm-title text-balance" x-text="`Заказ № ${o.order_no}`"></h1>
+          <!-- @include crm-status.html -->
+          <!-- @include crm-pay.html -->
+          <span x-show="o.is_urgent" class="crm-badge bg-error text-surface">Срочно</span>
+          <span x-show="o.is_problem" class="crm-badge bg-status-confirmed-soft text-status-confirmed">Проблема</span>
+        </div>
+        <p class="mt-2 text-[0.75rem] text-ink-muted"
+           x-text="`Создан ${$store.fmt.dateTime(o.created_at)} · ${$store.crm.channels[o.channel]} · менеджер: ${$store.crm.employeeName(o.assigned_to)}`"></p>
+        <p x-show="o.status === 'cancelled' && o.cancelled_reason" class="mt-2 text-[0.75rem] text-error" x-text="`Причина отмены: ${o.cancelled_reason}`"></p>
+      </div>
+      <div class="no-print flex flex-wrap gap-3">
+        <button type="button" class="btn-outline" @click="toggleUrgent()" :disabled="busy || closed" x-text="o.is_urgent ? 'Снять срочность' : 'Срочно'"></button>
+        <button type="button" class="btn-outline" @click="printInvoice()">Накладная</button>
+        <button type="button" class="btn-primary" @click="openStatus()" :disabled="!options.length || busy">Изменить статус ▾</button>
+      </div>
+    </div>
+
+    <p x-show="error" x-cloak role="alert" class="rounded-card bg-error-soft px-5 py-3 text-[0.8125rem] text-error" x-text="error"></p>
+
+    <!-- Проблемный заказ: нехватка на сборке. Признак снимается сам, когда состав поправлен (ФТ-З-08) -->
+    <div x-show="o.is_problem" class="flex flex-wrap items-center justify-between gap-3 rounded-card border border-status-confirmed/40 bg-status-confirmed-soft px-5 py-3 text-[0.8125rem] text-status-confirmed">
+      <p>
+        <span class="font-semibold" x-text="o.problem_note || 'Заказ отмечен проблемным'"></span>
+        <span x-show="shortItems.length && editable" class="block text-[0.75rem]">Согласуйте с клиентом и уменьшите количество или уберите позицию — склад продолжит сборку.</span>
+      </p>
+      <button type="button" x-show="!shortItems.length" class="btn-outline btn-s" @click="clearProblem()" :disabled="busy">Снять проблему</button>
+    </div>
+
+    <!-- Путь заказа: восемь статусов, cancelled в стороне -->
+    <ol x-show="o.status !== 'cancelled'" class="crm-card grid grid-cols-7 gap-1 px-4 py-4 sm:px-6">
+      <template x-for="(s, i) in flow" :key="s">
+        <li class="flex flex-col gap-2">
+          <span class="h-1 rounded-full" :class="i <= step ? 'bg-brand-dark' : 'bg-line'"></span>
+          <span class="text-[0.5625rem] leading-tight sm:text-[0.6875rem]" :class="i === step ? 'font-semibold text-ink' : i < step ? 'text-ink' : 'text-ink-muted'" x-text="$store.crm.statuses[s].label"></span>
+        </li>
+      </template>
+    </ol>
+
+    <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <!-- Состав: название и цена — снимок на момент заказа -->
+      <section class="crm-card overflow-hidden">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-6">
+          <h2 class="crm-h2" x-text="`Состав · ${$store.fmt.count(o.items.length, 'позиция', 'позиции', 'позиций')}`"></h2>
+          <span class="text-[0.6875rem] text-ink-muted">цены — на момент заказа</span>
+        </div>
+        <ul class="divide-y divide-line/70 border-t border-line/70 md:hidden">
+          <template x-for="i in o.items" :key="i.id">
+            <li class="px-4 py-3">
+              <p class="text-[0.8125rem]" x-text="i.product_name"></p>
+              <p class="text-[0.6875rem] text-ink-muted" x-text="`арт. ${i.product_sku ?? '—'} · полка ${i.storage_location ?? '—'}`"></p>
+              <p x-show="$store.fmt.tiyn(i.short_qty)" class="text-[0.6875rem] font-semibold text-status-confirmed" x-text="`не хватает ${$store.fmt.qty(i.short_qty)} ${i.unit}`"></p>
+              <div class="mt-1.5 flex items-center justify-between gap-3 text-[0.8125rem]">
+                <span x-show="!editable" x-text="`${$store.fmt.qty(i.quantity)} ${i.unit} × ${$store.fmt.money($store.fmt.tiyn(i.price))}${i.discount_percent ? ` −${i.discount_percent} %` : ''}`"></span>
+                <span x-show="editable" class="flex items-center gap-1.5">
+                  <input type="text" inputmode="decimal" :value="$store.fmt.qty(i.quantity).replace(',', '.')" @change="setQty(i, $event.target.value)" class="crm-field h-8 w-16 px-2 text-right" :aria-label="`Количество: ${i.product_name}`" :disabled="busy" />
+                  <span x-text="`${i.unit} × ${$store.fmt.money($store.fmt.tiyn(i.price))}`"></span>
+                  <button type="button" class="ml-1 text-error" @click="removeItem(i)" :disabled="busy || o.items.length < 2" :aria-label="`Убрать: ${i.product_name}`">×</button>
+                </span>
+                <span class="font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(i.subtotal))"></span>
+              </div>
+            </li>
+          </template>
+        </ul>
+        <div class="hidden overflow-x-auto md:block"><table class="crm-table">
+          <thead><tr><th>Товар</th><th>Полка</th><th x-show="['new','confirmed','assembled'].includes(o.status)">Доступно</th><th>Кол-во</th><th>Цена</th><th>Скидка</th><th class="text-right">Сумма</th><th x-show="editable" class="w-8"><span class="sr-only">Убрать</span></th></tr></thead>
+          <tbody>
+            <template x-for="i in o.items" :key="i.id">
+              <tr>
+                <td>
+                  <div class="flex items-center gap-3" x-data="{ pid: i.product_id }">
+                    <!-- @include crm-swatch.html -->
+                    <span class="min-w-0"><span class="block" x-text="i.product_name"></span><span class="text-[0.6875rem] text-ink-muted" x-text="`арт. ${i.product_sku ?? '—'}`"></span>
+                      <span x-show="$store.fmt.tiyn(i.short_qty)" class="block text-[0.6875rem] font-semibold text-status-confirmed" x-text="`склад: не хватает ${$store.fmt.qty(i.short_qty)} ${i.unit}`"></span></span>
+                  </div>
+                </td>
+                <td class="whitespace-nowrap text-[0.75rem] text-ink-muted" x-text="i.storage_location ?? '—'"></td>
+                <td x-show="['new','confirmed','assembled'].includes(o.status)" class="whitespace-nowrap text-[0.75rem]"
+                    :class="free(i)?.low_stock ? 'text-status-confirmed' : 'text-ink-muted'"
+                    x-text="free(i) ? `${$store.fmt.qty(free(i).available_qty)} · резерв ${$store.fmt.qty(free(i).reserved_qty)}` : '—'"></td>
+                <td class="whitespace-nowrap">
+                  <span x-show="!editable" x-text="`${$store.fmt.qty(i.quantity)} ${i.unit}`"></span>
+                  <span x-show="editable" class="flex items-center gap-1.5">
+                    <input type="text" inputmode="decimal" :value="$store.fmt.qty(i.quantity).replace(',', '.')" @change="setQty(i, $event.target.value)" @keydown.enter.prevent="$event.target.blur()"
+                           class="crm-field h-8 w-16 px-2 text-right" :aria-label="`Количество: ${i.product_name}`" :disabled="busy" />
+                    <span class="text-[0.75rem] text-ink-muted" x-text="i.unit"></span>
+                  </span>
+                </td>
+                <td class="whitespace-nowrap text-ink-muted" x-text="$store.fmt.money($store.fmt.tiyn(i.price))"></td>
+                <td class="whitespace-nowrap text-ink-muted">
+                  <span x-show="!editable" x-text="i.discount_percent ? `${i.discount_percent} %` : '—'"></span>
+                  <span x-show="editable" class="flex items-center gap-1">
+                    <input type="number" min="0" max="100" :value="i.discount_percent" @change="setDiscount(i, $event.target.value)" class="crm-field h-8 w-14 px-2 text-right" :aria-label="`Скидка: ${i.product_name}`" :disabled="busy" /> %
+                  </span>
+                </td>
+                <td class="whitespace-nowrap text-right font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(i.subtotal))"></td>
+                <td x-show="editable"><button type="button" class="grid size-8 place-items-center rounded-control text-ink-muted transition hover:bg-error-soft hover:text-error disabled:opacity-40"
+                        @click="removeItem(i)" :disabled="busy || o.items.length < 2" :title="o.items.length < 2 ? 'Последнюю позицию не убрать — такой заказ отменяют' : 'Убрать позицию'" :aria-label="`Убрать: ${i.product_name}`">×</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table></div>
+
+        <!-- Добавить позицию: только до сборки -->
+        <div x-show="editable" class="no-print flex flex-wrap items-center gap-2 border-t border-line/70 px-4 py-4 sm:px-6">
+          <input type="search" x-model="addSearch" class="crm-field w-full sm:w-56" placeholder="Найти товар или артикул" aria-label="Поиск товара для добавления" />
+          <select x-model="addId" class="crm-field min-w-0 flex-1" aria-label="Товар">
+            <option value="">Добавить товар…</option>
+            <template x-for="p in addChoices" :key="p.id">
+              <option :value="p.id" :disabled="!bl.milli(p.available_qty)" x-text="`${$store.crm.productName(p)} — ${$store.fmt.money(bl.retail(p))} · своб. ${bl.formatQty(p.available_qty)}`"></option>
+            </template>
+          </select>
+          <button type="button" class="btn-outline btn-s" @click="addItem()" :disabled="!addId || busy">Добавить</button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 border-t border-line/70 px-4 py-5 text-[0.8125rem] sm:grid-cols-2 sm:gap-8 sm:px-6">
+          <div class="space-y-1.5 text-ink-muted">
+            <p><span class="text-ink" x-text="deliveryNames[o.delivery_method]"></span><span x-show="o.city" x-text="` · ${o.city}`"></span></p>
+            <p x-show="o.delivery_address" x-text="o.delivery_address"></p>
+            <p x-show="o.delivery_method === 'pickup'" class="text-[0.75rem]">Пункт выдачи — по договорённости с клиентом</p>
+            <p x-show="o.note" class="italic" x-text="`«${o.note}»`"></p>
+          </div>
+          <!-- Итог = товары + доставка -->
+          <dl class="space-y-1.5">
+            <div class="flex justify-between text-ink-muted"><dt>Товары</dt><dd x-text="$store.fmt.money($store.fmt.tiyn(o.items_total))"></dd></div>
+            <div class="flex items-center justify-between gap-3 text-ink-muted">
+              <dt>Доставка</dt>
+              <dd x-show="!deliveryEdit" class="flex items-center gap-2">
+                <span x-text="$store.fmt.money($store.fmt.tiyn(o.delivery))"></span>
+                <button type="button" x-show="!closed && o.delivery_method !== 'pickup'" class="no-print text-[0.6875rem] text-brand-gold hover:underline" @click="editDelivery()">изменить</button>
+              </dd>
+              <dd x-show="deliveryEdit" class="flex items-center gap-1.5">
+                <input type="text" inputmode="decimal" x-model="deliveryValue" class="crm-field h-8 w-24 px-2 text-right" aria-label="Стоимость доставки" @keydown.enter.prevent="saveDelivery()" />
+                <button type="button" class="btn-primary btn-s h-8 px-3" @click="saveDelivery()" :disabled="busy">OK</button>
+                <button type="button" class="text-ink-muted" @click="deliveryEdit = false" aria-label="Отмена">×</button>
+              </dd>
+            </div>
+            <div class="flex items-baseline justify-between border-t border-line pt-2"><dt class="font-medium">Итого</dt><dd class="font-heading text-[1.75rem] font-semibold" x-text="$store.fmt.money(totalT)"></dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Оплачено</dt><dd class="font-medium" :class="paidT >= totalT && totalT ? 'text-success' : ''" x-text="$store.fmt.money(paidT)"></dd></div>
+            <div x-show="due && o.status !== 'cancelled' && o.payment_status !== 'refunded'" class="flex justify-between text-error"><dt>К оплате</dt><dd class="font-semibold" x-text="$store.fmt.money(due)"></dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <div class="flex flex-col gap-5">
+        <!-- Оплата: только вручную -->
+        <section class="crm-card p-5">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="crm-h2">Оплата</h2>
+            <!-- @include crm-pay.html -->
+          </div>
+          <dl class="mt-4 space-y-1.5 text-[0.8125rem]">
+            <div class="flex justify-between"><dt class="text-ink-muted">Способ</dt><dd x-text="$store.crm.payMethods[o.payment_method]"></dd></div>
+            <div class="flex justify-between"><dt class="text-ink-muted">Получено</dt><dd x-text="`${$store.fmt.money(paidT)} из ${$store.fmt.money(totalT)}`"></dd></div>
+          </dl>
+          <p class="mt-3 text-[0.6875rem] leading-snug text-ink-muted">QR Kaspi статический: система о платеже не узнаёт. Отметьте оплату, когда увидели перевод или получили наличные.</p>
+          <div class="no-print mt-4 flex flex-wrap gap-2">
+            <button type="button" x-show="['unpaid', 'partial'].includes(o.payment_status) && o.status !== 'cancelled'" class="btn-primary btn-s" @click="openPay()" :disabled="busy">Отметить оплату</button>
+            <button type="button" x-show="['paid', 'partial'].includes(o.payment_status) && o.status !== 'cancelled'" class="btn-outline btn-s" @click="unmarkPay()" :disabled="busy" title="Отметили по ошибке">Снять отметку</button>
+            <button type="button" x-show="['paid', 'partial'].includes(o.payment_status)" class="btn-outline btn-s text-error" @click="refund()" :disabled="busy">Оформить возврат</button>
+          </div>
+        </section>
+
+        <!-- Клиент -->
+        <section class="crm-card p-5">
+          <h2 class="crm-h2">Клиент</h2>
+          <div class="mt-4 flex items-center gap-3">
+            <span class="grid size-11 place-items-center rounded-full bg-brand-gold-soft text-[0.8125rem] font-semibold" x-text="$store.fmt.initials(o.client_name)"></span>
+            <span><span class="block font-medium" x-text="o.client_name"></span><span class="text-[0.75rem] text-ink-muted" x-text="o.client_phone ?? 'телефон не указан'"></span></span>
+          </div>
+          <template x-if="o.client_orders?.length">
+            <div class="mt-4">
+              <p class="crm-label" x-text="`Другие заказы · ${o.client_orders.length}`"></p>
+              <ul class="mt-2 space-y-1 text-[0.75rem]">
+                <template x-for="x in o.client_orders.slice(0, 5)" :key="x.id">
+                  <li class="flex justify-between gap-3">
+                    <a :href="`/crm/order.html?id=${x.id}`" class="underline underline-offset-2 hover:text-brand-gold" x-text="`№ ${x.order_no} от ${$store.fmt.date(x.created_at)}`"></a>
+                    <span class="text-ink-muted" x-text="`${$store.fmt.money($store.fmt.tiyn(x.total))} · ${$store.crm.statuses[x.status].label.toLowerCase()}`"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+          <label class="no-print mt-4 flex flex-col gap-1.5">
+            <span class="crm-label">Менеджер</span>
+            <select class="crm-field" @change="assign($event.target.value)" :disabled="busy || closed">
+              <option value="" :selected="!o.assigned_to" disabled>не назначен</option>
+              <template x-for="m in $store.crm.assignees" :key="m.id"><option :value="m.id" x-text="m.name" :selected="o.assigned_to === m.id"></option></template>
+            </select>
+          </label>
+        </section>
+
+        <!-- Журнал: кто, когда, что изменил -->
+        <section class="crm-card p-5">
+          <h2 class="crm-h2">Журнал</h2>
+          <form class="no-print mt-4 flex gap-2" @submit.prevent="sendComment()">
+            <input type="text" x-model="comment" class="crm-field min-w-0 flex-1" placeholder="Комментарий для коллег" aria-label="Комментарий" />
+            <button type="submit" class="btn-outline btn-s" :disabled="!comment.trim()">Добавить</button>
+          </form>
+          <ol class="mt-4 max-h-[22rem] space-y-3 overflow-y-auto pr-1 text-[0.75rem]">
+            <template x-for="e in [...(o.events ?? [])].reverse()" :key="e.id">
+              <li class="border-l-2 pl-3" :class="e.kind === 'problem' || e.kind === 'picking' && e.message.includes('не хватает') ? 'border-status-confirmed' : e.kind === 'comment' ? 'border-brand-gold' : 'border-line'">
+                <p :class="e.kind === 'comment' && 'italic'" x-text="e.message"></p>
+                <p class="mt-0.5 text-[0.6875rem] text-ink-muted" x-text="`${$store.fmt.dateTime(e.created_at)} · ${e.actor_name ?? (e.actor_kind === 'client' ? 'клиент' : 'система')}`"></p>
+              </li>
+            </template>
+          </ol>
+        </section>
+      </div>
+    </div>
+
+    <!-- ===================== Модалка смены статуса ===================== -->
+    <template x-teleport="body">
+    <div x-show="modal" x-cloak x-effect="document.documentElement.classList.toggle('overflow-hidden', !!modal)">
+    <template x-if="modal">
+      <div class="crm-modal-backdrop" @keydown.escape.window="modal = false" @click.self="modal = false">
+        <form class="crm-modal" @submit.prevent="saveStatus()" role="dialog" aria-modal="true" aria-labelledby="st-title">
+          <div class="flex items-start justify-between gap-4 px-5 pt-6 sm:px-7">
+            <div>
+              <h2 id="st-title" class="crm-h2" x-text="`Статус заказа № ${o.order_no}`"></h2>
+              <p class="mt-1 text-[0.75rem] text-ink-muted" x-text="`Сейчас: ${$store.crm.statuses[o.status].label}`"></p>
+            </div>
+            <button type="button" class="text-xl text-ink-muted hover:text-ink" @click="modal = false" aria-label="Закрыть">×</button>
+          </div>
+          <div class="flex flex-col gap-4 px-5 py-6 sm:px-7">
+            <template x-for="s in options" :key="s">
+              <label class="flex cursor-pointer items-start gap-3 rounded-control border px-4 py-3 transition"
+                     :class="next === s ? 'border-brand-gold bg-brand-gold-soft/50' : 'border-line hover:border-brand-gold-light'">
+                <input type="radio" name="next" :value="s" x-model="next" class="mt-1 accent-brand-dark" />
+                <span>
+                  <span class="crm-badge" :class="$store.crm.statuses[s].badge"><span class="size-1.5 rounded-full bg-current"></span><span x-text="$store.crm.statuses[s].label"></span></span>
+                  <span class="mt-1 block text-[0.6875rem] text-ink-muted" x-text="hints[s]"></span>
+                </span>
+              </label>
+            </template>
+            <template x-if="next === 'cancelled'">
+              <div class="flex flex-col gap-3">
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-[0.75rem] font-medium">Причина отмены</span>
+                  <input type="text" x-model="reason" class="crm-field" placeholder="Например, клиент передумал" />
+                </label>
+                <!-- Отмена оплаченного заказа требует возврата -->
+                <div x-show="needsRefund" class="rounded-control border border-error/40 bg-error-soft px-4 py-3 text-[0.75rem] text-error">
+                  <p x-text="`Получено ${$store.fmt.money(paidT)}. Отменить можно только с возвратом денег клиенту.`"></p>
+                  <label class="mt-2 flex items-start gap-2 text-ink">
+                    <input type="checkbox" x-model="refundOk" class="mt-0.5 accent-brand-dark" />
+                    <span>Деньги возвращены клиенту — отметить возврат и отменить заказ</span>
+                  </label>
+                </div>
+              </div>
+            </template>
+            <p x-show="next === 'handed_over'" class="rounded-control bg-brand-gold-soft px-4 py-3 text-[0.75rem]">Остатки по заказу спишутся со склада сейчас — при выдаче или передаче в доставку.</p>
+            <p x-show="next === 'completed' && o.payment_status !== 'paid'" class="rounded-control bg-status-confirmed-soft px-4 py-3 text-[0.75rem] text-status-confirmed">Заказ не отмечен оплаченным — проверьте оплату перед закрытием.</p>
+            <p x-show="error" class="text-[0.75rem] text-error" x-text="error"></p>
+          </div>
+          <div class="flex flex-wrap justify-end gap-3 border-t border-line px-5 py-4 sm:px-7">
+            <button type="button" class="btn-outline" @click="modal = false">Отмена</button>
+            <button type="submit" class="btn-primary" :disabled="!next || busy || (needsRefund && !refundOk)">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </template>
+    </div>
+    </template>
+
+    <!-- ===================== Модалка оплаты ===================== -->
+    <template x-teleport="body">
+    <div x-show="payModal" x-cloak x-effect="document.documentElement.classList.toggle('overflow-hidden', !!payModal)">
+    <template x-if="payModal">
+      <div class="crm-modal-backdrop" @keydown.escape.window="payModal = false" @click.self="payModal = false">
+        <form class="crm-modal" @submit.prevent="savePay()" role="dialog" aria-modal="true" aria-labelledby="pay-title">
+          <div class="flex items-start justify-between gap-4 px-5 pt-6 sm:px-7">
+            <div>
+              <h2 id="pay-title" class="crm-h2">Отметить оплату</h2>
+              <p class="mt-1 text-[0.75rem] text-ink-muted" x-text="`Заказ № ${o.order_no} · итого ${$store.fmt.money(totalT)}`"></p>
+            </div>
+            <button type="button" class="text-xl text-ink-muted hover:text-ink" @click="payModal = false" aria-label="Закрыть">×</button>
+          </div>
+          <div class="flex flex-col gap-4 px-5 py-6 sm:px-7">
+            <fieldset class="flex flex-col gap-2">
+              <legend class="mb-2 text-[0.75rem] font-medium">Как оплатили</legend>
+              <label class="flex items-center gap-2 text-[0.8125rem]"><input type="radio" value="kaspi_transfer" x-model="payForm.method" class="accent-brand-dark" /> Kaspi (QR / перевод)</label>
+              <label class="flex items-center gap-2 text-[0.8125rem]"><input type="radio" value="cash" x-model="payForm.method" class="accent-brand-dark" /> Наличные</label>
+            </fieldset>
+            <fieldset class="flex flex-col gap-2">
+              <legend class="mb-2 text-[0.75rem] font-medium">Сумма</legend>
+              <label class="flex items-center gap-2 text-[0.8125rem]"><input type="radio" value="full" x-model="payForm.kind" class="accent-brand-dark" /> <span x-text="`Полностью — ${$store.fmt.money(totalT)}`"></span></label>
+              <label class="flex items-center gap-2 text-[0.8125rem]"><input type="radio" value="partial" x-model="payForm.kind" class="accent-brand-dark" /> Частично (предоплата)</label>
+              <input x-show="payForm.kind === 'partial'" type="text" inputmode="decimal" x-model="payForm.amount" class="crm-field w-40" placeholder="Сумма, ₸" aria-label="Сумма предоплаты" />
+              <span x-show="payForm.kind === 'partial' && payForm.amount && !payValid" class="field-error">Больше нуля и меньше итога</span>
+            </fieldset>
+            <p x-show="error" class="text-[0.75rem] text-error" x-text="error"></p>
+          </div>
+          <div class="flex flex-wrap justify-end gap-3 border-t border-line px-5 py-4 sm:px-7">
+            <button type="button" class="btn-outline" @click="payModal = false">Отмена</button>
+            <button type="submit" class="btn-primary" :disabled="busy || !payValid">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </template>
+    </div>
+    </template>
+  </div>
+  </template>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>

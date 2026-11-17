@@ -1,0 +1,212 @@
+@import "./fonts.css";
+@import "tailwindcss";
+
+/* Все токены (цвета, шрифты, размеры, радиусы, тени) — в tailwind.config.js */
+@config "../tailwind.config.js";
+
+/* Документацию не сканируем: в ней примеры «как нельзя» (bg-[#…]) — иначе Tailwind сгенерирует эти классы */
+@source not "../README.md";
+@source not "../tailwind.config.js";
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply bg-brand-light font-body text-ink antialiased; }
+  [x-cloak] { display: none !important; }
+  /* Фокус с клавиатуры — фирменная золотая обводка вместо системной чёрной */
+  :focus-visible { outline: 2px solid var(--color-brand-gold); outline-offset: 2px; }
+  :focus:not(:focus-visible) { outline: none; }
+  /* Тап на мобильных без серой вспышки */
+  a, button, label, select, summary { -webkit-tap-highlight-color: transparent; }
+}
+
+/* Надпись-«капс» из макета: Montserrat Medium, верхний регистр, разрядка */
+@utility caps {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+@utility eyebrow {
+  @apply caps text-[11px] text-brand-gold;
+  &::before {
+    content: "";
+    @apply mr-3 inline-block h-px w-6 bg-brand-gold align-middle;
+  }
+}
+
+@utility demo-tag {
+  @apply caps inline-flex items-center rounded-full border border-brand-gold/50 px-2 py-0.5 text-[9px] text-brand-gold;
+}
+
+/* ---------- Кнопки (компонент Button в UI-ките) ----------
+   Типы: btn-primary, btn-gold, btn-outline, btn-link. Размер по умолчанию M (44px), btn-l — 52px, btn-s — 34px.
+   .is-hover — принудительное hover-состояние, только для витрины на /tokens.html. */
+@utility btn {
+  @apply caps inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-control border border-transparent px-5 text-button transition-colors;
+  &:disabled, &.is-disabled { @apply cursor-not-allowed; }
+}
+@utility btn-l { @apply h-13 px-7; }
+@utility btn-s { @apply h-[2.125rem] px-4; }
+
+@utility btn-primary {
+  @apply btn border-brand-dark bg-brand-dark text-brand-light;
+  &:hover:enabled, &.is-hover { @apply border-brand-dark-hover bg-brand-dark-hover; }
+  &:disabled, &.is-disabled { @apply border-disabled bg-disabled text-surface; }
+}
+@utility btn-gold {
+  @apply btn border-brand-gold bg-brand-gold text-surface;
+  &:hover:enabled, &.is-hover { @apply border-brand-gold-hover bg-brand-gold-hover; }
+  &:disabled, &.is-disabled { @apply border-disabled bg-disabled text-surface; }
+}
+@utility btn-outline {
+  @apply btn border-brand-gold bg-transparent text-ink;
+  &:hover:enabled, &.is-hover { @apply border-brand-dark bg-brand-dark text-brand-light; }
+  &:disabled, &.is-disabled { @apply border-disabled bg-transparent text-ink-placeholder; }
+}
+@utility btn-link {
+  @apply caps inline-flex items-center gap-2 border-b border-ink pb-0.5 text-button text-ink transition-colors;
+  &:hover:enabled, &.is-hover { @apply border-brand-gold text-brand-gold; }
+  &:disabled, &.is-disabled { @apply cursor-not-allowed border-disabled text-ink-placeholder; }
+}
+
+/* Боковое меню */
+@utility nav-link {
+  @apply caps relative block rounded-control px-4 py-3 text-xs text-on-dark/85 transition-colors hover:bg-white/6 hover:text-brand-gold-light;
+}
+@utility sub-link {
+  @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-light text-on-dark/80 transition-colors hover:text-brand-gold-light;
+  &.is-active { @apply font-normal text-brand-gold-light; }
+  &.is-active .sub-mark { @apply w-5 bg-brand-gold opacity-100; }
+}
+@utility sub-mark {
+  @apply h-px w-3 bg-current opacity-50 transition-all;
+}
+
+/* Счётчик в шапке */
+@utility counter {
+  @apply grid h-5 min-w-5 place-items-center rounded-full bg-brand-gold px-1.5 text-[0.625rem] font-semibold tracking-normal text-surface;
+}
+
+/* ---------- Поля (компонент Input в UI-ките) ----------
+   Состояния: обычное, :focus, заполненное, .is-invalid (ошибка), :disabled.
+   .is-focus — принудительный фокус для витрины на /tokens.html. */
+@utility field {
+  @apply h-12 w-full rounded-control border border-line bg-surface px-4 text-small text-ink outline-none transition-colors placeholder:text-ink-placeholder;
+  &:focus, &.is-focus { @apply border-brand-dark; }
+  &.is-invalid { @apply border-error; }
+  &:disabled { @apply cursor-not-allowed border-disabled bg-brand-light text-ink-placeholder; }
+}
+@utility field-error { @apply text-xs text-error; }
+@utility card {
+  @apply rounded-card bg-surface;
+}
+
+/* Фильтр-чипы в каталоге */
+@utility chip {
+  @apply caps h-9 rounded-full border border-line px-4 text-[0.625rem] tracking-[0.16em] text-ink transition hover:border-brand-gold;
+  &.is-active { @apply border-brand-dark bg-brand-dark text-brand-light; }
+}
+
+/* ---------- Активный раздел ----------
+   Определяется по <body data-page="…"> чистым CSS: подсветка видна с первого кадра. */
+/* Вне @layer — чтобы перекрывать утилиты базового состояния */
+:is(
+  [data-page="home"] [data-nav="home"],
+  [data-page="catalog"] [data-nav="catalog"],
+  [data-page="product"] [data-nav="catalog"],
+  [data-page="favorites"] [data-nav="favorites"],
+  [data-page="cart"] [data-nav="cart"],
+  [data-page="checkout"] [data-nav="cart"],
+  [data-page="contacts"] [data-nav="contacts"],
+  [data-page="account"] [data-nav="account"]
+) {
+  background: linear-gradient(90deg, rgb(184 151 90 / 0.22), rgb(184 151 90 / 0.06));
+  color: var(--color-brand-gold-light);
+  box-shadow: inset 0 0 0 1px rgb(184 151 90 / 0.35);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0.6rem auto 0.6rem 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-brand-gold);
+  }
+}
+
+/* Шапка: «Избранное» и «Корзина» на своих страницах */
+[data-page="account"] [data-hnav="account"] { @apply bg-brand-gold-soft ring-1 ring-brand-gold-light; }
+[data-page="favorites"] [data-hnav="favorites"] { @apply bg-brand-gold-soft ring-1 ring-brand-gold-light; }
+:is([data-page="cart"], [data-page="checkout"]) [data-hnav="cart"] { @apply ring-2 ring-brand-gold ring-offset-2 ring-offset-surface; }
+
+/* ---------- Переходы между страницами ----------
+   Браузер (Chrome/Edge/Safari 18) плавно сменяет страницы вместо белой вспышки.
+   Меню и шапка одинаковы на всех страницах — они остаются на месте, меняется только контент. */
+@view-transition { navigation: auto; }
+::view-transition-group(root) { animation-duration: 180ms; }
+.vt-sidebar { view-transition-name: sidebar; }
+.vt-topbar  { view-transition-name: topbar; }
+.vt-content { view-transition-name: content; }
+::view-transition-old(content) { animation: 120ms ease-out both vt-fade-out; }
+::view-transition-new(content) { animation: 220ms ease-out both vt-fade-in; }
+::view-transition-group(sidebar),
+::view-transition-group(topbar) { animation: none; }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-fade-in  { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(content), ::view-transition-new(content) { animation: none; }
+}
+
+/* ---------- Скелетон загрузки (только при самом первом заходе) ---------- */
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-media-ingredients) 25%, var(--color-brand-light) 50%, var(--color-media-ingredients) 75%);
+  background-size: 200% 100%;
+  animation: skeleton 1.4s ease-in-out infinite;
+}
+@keyframes skeleton { to { background-position: -200% 0; } }
+
+/* =====================================================================
+   CRM (Figma «🗂 CRM · Менеджер и склад»)
+   ===================================================================== */
+@utility crm-nav-link {
+  @apply flex items-center gap-3 rounded-control px-3 py-2.5 text-[0.8125rem] text-on-dark transition-colors hover:bg-white/5 hover:text-brand-light;
+  &.is-active { @apply bg-crm-sidebar-active text-white; }
+}
+/* Карточка-панель CRM */
+@utility crm-card { @apply rounded-card border border-line/70 bg-surface; }
+@utility crm-title { @apply font-heading text-[clamp(1.875rem,4vw,2.25rem)] font-medium leading-none; }
+@utility crm-h2 { @apply font-heading text-[1.5rem] font-medium leading-tight; }
+@utility crm-label { @apply caps text-[0.5625rem] tracking-[0.18em] text-ink-muted; }
+/* Бейдж статуса */
+@utility crm-badge {
+  @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[0.6875rem] font-medium leading-none;
+}
+/* Таблица */
+@utility crm-table {
+  @apply w-full border-collapse text-[0.8125rem];
+  & th { @apply caps whitespace-nowrap bg-brand-light/60 px-3 py-3 text-left text-[0.5625rem] font-medium tracking-[0.16em] text-ink-muted; }
+  & td { @apply border-t border-line/70 px-3 py-3 align-middle; }
+  & :is(th, td):first-child { @apply pl-4; }
+  & :is(th, td):last-child { @apply pr-4; }
+}
+/* Компактные поля и селекты в фильтрах */
+@utility crm-field {
+  @apply h-10 rounded-control border border-line bg-surface px-3.5 text-[0.8125rem] text-ink outline-none transition-colors placeholder:text-ink-placeholder focus:border-brand-gold;
+  &.is-invalid { @apply border-error; }
+}
+@utility crm-tab {
+  @apply inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 border-transparent pb-2.5 text-[0.8125rem] text-ink-muted transition-colors hover:text-ink;
+  &.is-active { @apply border-brand-dark text-ink; }
+}
+@utility crm-count { @apply rounded-full bg-brand-light px-1.5 py-0.5 text-[0.625rem] text-ink-muted; }
+/* KPI-карточка с цветной полосой слева */
+@utility crm-kpi { @apply crm-card relative overflow-hidden px-5 py-4; }
+
+/* Модальное окно */
+@utility crm-modal-backdrop { @apply fixed inset-0 z-40 grid grid-cols-[minmax(0,1fr)] place-items-center overflow-y-auto overscroll-contain bg-ink/40 p-3 backdrop-blur-[2px] sm:p-6; }
+@utility crm-modal { @apply w-full max-w-[40rem] rounded-panel bg-surface shadow-lift; }
+
+@media print {
+  .vt-sidebar, .vt-topbar, .no-print { display: none !important; }
+  body { background: #fff; }
+}

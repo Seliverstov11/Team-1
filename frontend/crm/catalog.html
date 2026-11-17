@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Каталог и цены — Bakeloom CRM</title>
+</head>
+<body data-page="catalog">
+<!-- @include crm-layout-start.html -->
+
+<main id="main" x-data="crmCatalog" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+    <div>
+      <h1 class="crm-title text-balance">Каталог и цены</h1>
+      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted">Только владелец. Новая цена действует для новых заказов — в старых сохранена цена на момент заказа</p>
+    </div>
+    <button type="button" class="btn-primary" @click="open()">+ Новый товар</button>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <input type="search" x-model.debounce.200ms="q" class="crm-field w-full sm:w-72" placeholder="Название, фасовка, артикул" aria-label="Поиск товара" />
+    <select x-model="category" class="crm-field" aria-label="Категория">
+      <option value="">Все категории</option>
+      <template x-for="c in $store.crm.categories" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+    </select>
+    <label class="flex items-center gap-2 text-[0.8125rem]"><input type="checkbox" x-model="archived" class="accent-brand-dark" /> Снятые с продажи</label>
+    <span class="text-[0.75rem] text-ink-muted" x-text="$store.fmt.count(rows.length, 'позиция', 'позиции', 'позиций')"></span>
+  </div>
+
+  <p x-show="error" x-cloak role="alert" class="rounded-card bg-error-soft px-5 py-3 text-[0.8125rem] text-error" x-text="error"></p>
+
+  <section class="crm-card overflow-hidden">
+    <div class="overflow-x-auto"><table class="crm-table">
+      <thead><tr><th>Товар</th><th>Категория</th><th>Фасовка</th><th class="text-right">Цена</th><th class="text-right">Доступно</th><th>Характеристики</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="p in page" :key="p.id">
+          <tr class="cursor-pointer transition hover:bg-brand-light/60" @click="open(p)">
+            <td><span class="block font-medium" x-text="p.name"></span><span class="text-[0.6875rem] text-ink-muted" x-text="`арт. ${p.sku ?? '—'}`"></span></td>
+            <td class="whitespace-nowrap text-[0.75rem] text-ink-muted" x-text="$store.crm.category(p.category_id).name"></td>
+            <td class="whitespace-nowrap text-[0.75rem]" x-text="p.variant_name ?? '—'"></td>
+            <td class="whitespace-nowrap text-right font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(p.price))"></td>
+            <td class="whitespace-nowrap text-right" x-text="`${$store.fmt.qty(p.available_qty)} ${p.unit}`"></td>
+            <td class="text-[0.6875rem] text-ink-muted" x-text="p.attributes?.length ? p.attributes.map(a => a.name).join(', ') : '—'"></td>
+            <td class="whitespace-nowrap text-right">
+              <button type="button" class="text-[0.75rem] underline underline-offset-2" :class="p.is_archived ? 'text-success' : 'text-ink-muted hover:text-error'"
+                      @click.stop="toggleArchive(p)" x-text="p.is_archived ? 'Вернуть в продажу' : 'Снять с продажи'"></button>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="loading"><td colspan="7" class="py-12 text-center text-ink-muted">Загружаем…</td></tr>
+        <tr x-show="!loading && !rows.length"><td colspan="7" class="py-12 text-center text-ink-muted">Ничего не найдено</td></tr>
+      </tbody>
+    </table></div>
+    <div x-show="rows.length > shown" class="border-t border-line/70 px-4 py-3 text-center">
+      <button type="button" class="btn-outline btn-s" @click="shown += 60">Показать ещё</button>
+    </div>
+  </section>
+
+  <!-- ===================== Товар: правка и добавление (ФТ-КТ-01) ===================== -->
+  <template x-teleport="body">
+  <div x-show="edit" x-cloak x-effect="document.documentElement.classList.toggle('overflow-hidden', !!edit)">
+  <template x-if="edit">
+    <div class="crm-modal-backdrop" @keydown.escape.window="edit = null" @click.self="edit = null">
+      <form class="crm-modal max-w-[44rem]" novalidate @submit.prevent="save()" role="dialog" aria-modal="true" aria-labelledby="pr-title">
+        <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
+          <div>
+            <h2 id="pr-title" class="crm-h2" x-text="edit.id ? 'Товар' : 'Новый товар'"></h2>
+            <p class="mt-1 text-[0.75rem] text-ink-muted" x-text="edit.id ? 'Остаток меняется только через склад: приход или корректировка' : 'Начальный остаток оформится приходом на склад'"></p>
+          </div>
+          <button type="button" class="text-xl text-ink-muted hover:text-ink" @click="edit = null" aria-label="Закрыть">×</button>
+        </div>
+        <div class="grid max-h-[65dvh] grid-cols-1 gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2 sm:px-7">
+          <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <span class="text-[0.75rem]">Название *</span>
+            <input type="text" x-model="edit.name" class="crm-field" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Категория</span>
+            <select x-model="edit.category_id" class="crm-field">
+              <template x-for="c in $store.crm.categories" :key="c.id"><option :value="c.id" x-text="c.name" :selected="edit.category_id === c.id"></option></template>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Артикул</span>
+            <input type="text" x-model="edit.sku" class="crm-field" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Цена, ₸ *</span>
+            <input type="text" inputmode="decimal" x-model="edit.price" class="crm-field" placeholder="1880" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Единица</span>
+            <input type="text" x-model="edit.unit" class="crm-field" placeholder="шт" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Фасовка</span>
+            <input type="text" x-model="edit.variant_name" class="crm-field" placeholder="500 г" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Карточка (фасовки одной карточки)</span>
+            <select x-model="edit.group_id" class="crm-field">
+              <option value="">Отдельная карточка</option>
+              <template x-for="[gid, name] in groups()" :key="gid"><option :value="gid" x-text="name" :selected="edit.group_id === gid"></option></template>
+            </select>
+          </label>
+          <template x-if="!edit.id">
+            <div class="contents">
+              <label class="flex flex-col gap-1.5">
+                <span class="text-[0.75rem]">Начальный остаток</span>
+                <input type="text" inputmode="numeric" x-model="edit.stock" class="crm-field" placeholder="0" />
+              </label>
+              <label class="flex flex-col gap-1.5">
+                <span class="text-[0.75rem]">Полка</span>
+                <input type="text" x-model="edit.storage_location" class="crm-field" placeholder="Склад А / стеллаж 1 / полка 2" />
+              </label>
+            </div>
+          </template>
+          <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <span class="text-[0.75rem]">Описание</span>
+            <textarea x-model="edit.description" rows="2" class="crm-field h-auto py-2"></textarea>
+          </label>
+
+          <!-- Характеристики: у каждого товара свой набор, порядок — как на карточке (ФТ-Т-03) -->
+          <div class="sm:col-span-2">
+            <p class="text-[0.75rem]">Характеристики</p>
+            <datalist id="attr-names"><template x-for="n in attrNames" :key="n"><option :value="n"></option></template></datalist>
+            <ul class="mt-2 space-y-2">
+              <template x-for="(a, i) in edit.attributes" :key="i">
+                <li class="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_2rem] gap-2">
+                  <input type="text" x-model="a.name" list="attr-names" class="crm-field" placeholder="Название, например «Вес»" :aria-label="`Характеристика ${i + 1}`" />
+                  <input type="text" x-model="a.value" class="crm-field" placeholder="Значение" :aria-label="`Значение ${i + 1}`" />
+                  <button type="button" class="text-ink-muted hover:text-error" @click="edit.attributes.splice(i, 1)" aria-label="Убрать характеристику">×</button>
+                </li>
+              </template>
+            </ul>
+            <button type="button" class="mt-2 text-[0.75rem] text-brand-gold hover:underline" @click="edit.attributes.push({ name: '', value: '' })">+ характеристика</button>
+          </div>
+          <p x-show="formError" class="rounded-control bg-error-soft px-4 py-2.5 text-[0.75rem] text-error sm:col-span-2" x-text="formError"></p>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4 sm:px-7">
+          <button type="button" x-show="edit.id" class="text-[0.75rem] underline underline-offset-2" :class="edit.is_archived ? 'text-success' : 'text-ink-muted hover:text-error'"
+                  @click="toggleArchive(list.find(x => x.id === edit.id))" x-text="edit.is_archived ? 'Вернуть в продажу' : 'Снять с продажи'"></button>
+          <span x-show="!edit.id"></span>
+          <div class="flex gap-3">
+            <button type="button" class="btn-outline" @click="edit = null">Отмена</button>
+            <button type="submit" class="btn-primary" :disabled="saving" x-text="saving ? 'Сохраняем…' : 'Сохранить'"></button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </template>
+  </div>
+  </template>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>

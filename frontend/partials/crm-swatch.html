@@ -1,0 +1,5 @@
+<span class="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted [&_svg]:size-4"
+      x-data="{ get s() { return bl.groupOfCategory($store.crm.product(pid)?.category_id) } }"
+      :class="{ ingredients: 'bg-media-ingredients', decor: 'bg-media-decor', box: 'bg-media-packaging', board: 'bg-brand-gold-soft', bag: 'bg-media-packaging', other: 'bg-surface-sand' }[s.media]">
+  <!-- @include category-icon.html -->
+</span>

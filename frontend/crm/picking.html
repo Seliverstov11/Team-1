@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Сборка и выдача — Bakeloom CRM</title>
+</head>
+<body data-page="picking">
+<!-- @include crm-layout-start.html -->
+
+<main id="main" x-data="crmPicking" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="crm-title text-balance">Сборка и выдача</h1>
+      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted">Подтверждённые заказы собираем по полкам. Чего не хватает — отмечаем, менеджер поправит состав. Остаток списывается при выдаче</p>
+    </div>
+    <button type="button" class="btn-outline btn-s" @click="load()" :disabled="busy">Обновить очередь</button>
+  </div>
+
+  <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
+    <!-- Очередь: срочные сверху -->
+    <section class="crm-card overflow-hidden">
+      <h2 class="crm-h2 px-4 pt-5 sm:px-5" x-text="`Очередь · ${queue.length}`"></h2>
+      <ul class="mt-3 divide-y divide-line/70">
+        <template x-for="q in queue" :key="q.id">
+          <li>
+            <button type="button" class="block w-full px-4 py-3 text-left transition hover:bg-brand-light sm:px-5" :class="selected === q.id && 'bg-brand-light shadow-[inset_3px_0_0_var(--color-brand-gold)]'"
+                    @click="selected = q.id">
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-semibold" x-text="`№ ${q.order_no}`"></span>
+                <span class="flex gap-1.5">
+                  <span x-show="q.is_urgent" class="crm-badge bg-error text-surface">Срочно</span>
+                  <span x-show="q.is_problem" class="crm-badge bg-status-confirmed-soft text-status-confirmed">Нехватка</span>
+                  <span class="crm-badge" :class="$store.crm.statuses[q.status].badge" x-text="q.status === 'confirmed' ? `Собрать ${progress(q)}` : 'Выдать'"></span>
+                </span>
+              </div>
+              <p class="mt-1 text-[0.75rem] text-ink-muted" x-text="`${q.client_name} · ${deliveryNames[q.delivery_method]}${q.city ? ', ' + q.city : ''}`"></p>
+            </button>
+          </li>
+        </template>
+        <li x-show="!loading && !queue.length" class="px-5 py-10 text-center text-[0.8125rem] text-ink-muted">Очередь пуста</li>
+        <li x-show="loading" class="px-5 py-10 text-center text-[0.8125rem] text-ink-muted">Загружаем…</li>
+      </ul>
+    </section>
+
+    <section class="crm-card p-4 sm:p-6">
+      <p x-show="!o" class="py-10 text-center text-[0.8125rem] text-ink-muted">Выберите заказ слева</p>
+      <p x-show="error" x-cloak role="alert" class="mb-4 rounded-control bg-error-soft px-4 py-3 text-[0.8125rem] text-error" x-text="error"></p>
+      <template x-if="o">
+        <div class="flex flex-col gap-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="crm-h2" x-text="`Заказ № ${o.order_no}`"></h2>
+              <p class="mt-1 text-[0.75rem] text-ink-muted" x-text="`${o.client_name} · ${deliveryNames[o.delivery_method]}${o.city ? ', ' + o.city : ''}${o.delivery_address ? ' · ' + o.delivery_address : ''}`"></p>
+              <p x-show="o.note" class="mt-1 text-[0.75rem] italic text-ink-muted" x-text="`«${o.note}»`"></p>
+            </div>
+            <!-- @include crm-status.html -->
+          </div>
+
+          <p x-show="o.is_problem" class="rounded-control bg-status-confirmed-soft px-4 py-3 text-[0.8125rem] text-status-confirmed"
+             x-text="`${o.problem_note || 'Заказ проблемный'} — ждём, пока менеджер поправит состав`"></p>
+
+          <ul class="divide-y divide-line/70 rounded-control border border-line/70">
+            <template x-for="i in items" :key="i.id">
+              <li class="px-4 py-3" :class="i.picked ? 'bg-success-soft/50' : bl.milli(i.short_qty) > 0 && 'bg-status-confirmed-soft/40'">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-4">
+                    <input type="checkbox" :checked="i.picked" @change="pick(i, $event.target.checked)" class="size-5 shrink-0 accent-brand-dark"
+                           :disabled="o.status !== 'confirmed' || busy" :aria-label="`Собрано: ${i.product_name}`" />
+                    <span class="w-40 shrink-0 text-[0.75rem] font-medium max-sm:hidden" x-text="i.storage_location ?? '—'"></span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-[0.8125rem]" x-text="i.product_name"></span>
+                      <span class="text-[0.6875rem] text-ink-muted" x-text="`арт. ${i.product_sku ?? '—'}`"></span><span class="text-[0.6875rem] text-ink-muted sm:hidden" x-text="` · ${i.storage_location ?? '—'}`"></span>
+                      <span x-show="bl.milli(i.short_qty) > 0" class="block text-[0.6875rem] font-semibold text-status-confirmed" x-text="`не хватает ${$store.fmt.qty(i.short_qty)} ${i.unit}`"></span>
+                    </span>
+                  </label>
+                  <span class="shrink-0 font-heading text-[1.25rem] font-semibold" x-text="`${$store.fmt.qty(i.quantity)} ${i.unit}`"></span>
+                  <button type="button" x-show="o.status === 'confirmed' && shortFor !== i.id" class="btn-outline btn-s shrink-0 px-3" @click="openShort(i)" :disabled="busy"
+                          x-text="bl.milli(i.short_qty) > 0 ? 'Изменить нехватку' : 'Не хватает'"></button>
+                </div>
+                <form x-show="shortFor === i.id" class="mt-3 flex flex-wrap items-center gap-2 sm:pl-9" @submit.prevent="saveShort(i)">
+                  <span class="text-[0.75rem]">Не хватает</span>
+                  <input type="text" inputmode="decimal" x-model="shortValue" class="crm-field h-8 w-20 px-2 text-right" :aria-label="`Сколько не хватает: ${i.product_name}`" />
+                  <span class="text-[0.75rem] text-ink-muted" x-text="`${i.unit} из ${$store.fmt.qty(i.quantity)}`"></span>
+                  <button type="submit" class="btn-primary btn-s" :disabled="busy">Сохранить</button>
+                  <button type="button" class="text-[0.75rem] text-ink-muted underline" @click="shortFor = null">отмена</button>
+                  <span class="w-full text-[0.6875rem] text-ink-muted">Пустое или 0 — нехватку снять</span>
+                </form>
+              </li>
+            </template>
+          </ul>
+
+          <div class="flex flex-wrap items-center justify-end gap-3">
+            <template x-if="o.status === 'confirmed'">
+              <button type="button" class="btn-primary" :disabled="!allPicked || o.is_problem || busy" @click="setStatus('assembled', `Заказ № ${o.order_no} собран`)"
+                      x-text="o.is_problem ? 'Ждём правку состава' : allPicked ? 'Заказ собран' : 'Отметьте все позиции'"></button>
+            </template>
+            <template x-if="o.status === 'assembled'">
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="text-[0.75rem] text-ink-muted">Остаток спишется со склада</span>
+                <button type="button" class="btn-primary" :disabled="busy" @click="setStatus('handed_over', `Заказ № ${o.order_no} передан, остаток списан`)"
+                        x-text="o.delivery_method === 'pickup' ? 'Выдан клиенту' : 'Передан в доставку'"></button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </section>
+  </div>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>
