@@ -15,7 +15,7 @@
 
   <!-- ===================== Боковое меню =====================
        ≥1024px — колонка слева; уже — выдвижная панель по кнопке «Меню» -->
-  <aside id="site-menu" class="vt-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(19rem,86vw)] flex-col overflow-y-auto overscroll-contain rounded-r-panel [scrollbar-color:rgb(255_255_255/0.18)_transparent] [scrollbar-width:thin] bg-linear-to-b from-brand-dark to-brand-dark-hover px-6 py-8 text-on-dark transition-transform duration-300 motion-reduce:transition-none
+  <aside id="site-menu" class="vt-sidebar max-lg:hidden fixed inset-y-0 left-0 z-50 flex w-[min(19rem,86vw)] flex-col overflow-y-auto overscroll-contain rounded-r-panel [scrollbar-color:rgb(255_255_255/0.18)_transparent] [scrollbar-width:thin] bg-linear-to-b from-brand-dark to-brand-dark-hover px-6 py-8 text-on-dark transition-transform duration-300 motion-reduce:transition-none
                 lg:sticky lg:inset-auto lg:top-5 lg:z-auto lg:max-h-[calc(100dvh-2.5rem)] lg:w-72 lg:shrink-0 lg:translate-x-0 lg:self-start lg:rounded-panel lg:transition-none"
          :class="$store.ui.drawer ? 'translate-x-0 shadow-lift' : '-translate-x-full invisible lg:visible'"
          @keydown.escape.window="$store.ui.closeDrawer()" aria-label="Меню сайта">
@@ -89,14 +89,18 @@
   <div class="flex min-w-0 flex-1 flex-col gap-5 sm:gap-8" :inert="$store.ui.drawer">
     <!-- шапка и контент: при переходе анимируется только контент -->
 
-    <!-- Узкий экран (< 1024px): логотип, поиск, корзина со счётчиком; избранное и профиль — в нижней панели (#47) -->
-    <header class="vt-topbar flex min-h-[4.625rem] flex-wrap items-center gap-x-3 gap-y-3 rounded-card bg-surface px-3 py-3 sm:gap-x-4 sm:px-4">
-      <a href="/" class="mr-auto min-w-0 truncate pl-1 font-heading text-[1.625rem] font-medium leading-none text-brand-dark lg:hidden" aria-label="Bakeloom — на главную">Bakeloom</a>
-      <form action="/catalog.html" method="get" role="search" class="relative order-last flex w-full min-w-0 sm:order-none sm:w-auto sm:flex-1"
+    <!-- Узкий экран (< 1024px): как в маркетплейсах — значок, поиск и корзина одной строкой, закреплены сверху;
+         избранное и профиль — в нижней панели (#47). Компьютер: обычная шапка над контентом -->
+    <header class="vt-topbar flex items-center gap-2 bg-surface sm:gap-4
+                   max-lg:sticky max-lg:top-0 max-lg:z-30 max-lg:-mx-3 max-lg:-mt-3 max-lg:border-b max-lg:border-line max-lg:bg-surface/95 max-lg:px-3 max-lg:py-2 max-lg:shadow-[0_2px_8px_rgb(53_59_38/0.06)] max-lg:backdrop-blur
+                   sm:max-lg:-mx-5 sm:max-lg:-mt-5 sm:max-lg:px-5
+                   lg:min-h-[4.625rem] lg:rounded-card lg:px-4 lg:py-3">
+      <a href="/" class="shrink-0 lg:hidden" aria-label="Bakeloom — на главную"><img src="/img/logo.svg" alt="" class="size-10" /></a>
+      <form action="/catalog.html" method="get" role="search" class="relative flex min-w-0 flex-1"
             @submit="$store.ui.page === 'catalog' && $event.preventDefault()">
         <label class="sr-only" for="q">Поиск по названию</label>
-        <input id="q" name="q" type="search" x-model="$store.search.q" placeholder="Поиск по названию"
-               class="h-[2.875rem] w-full rounded-xl bg-brand-light pl-5 pr-12 text-sm font-light outline-none placeholder:text-ink-placeholder focus:ring-1 focus:ring-brand-gold/60" />
+        <input id="q" name="q" type="search" x-model="$store.search.q" placeholder="Поиск по названию" enterkeyhint="search"
+               class="h-11 lg:h-[2.875rem] w-full rounded-xl bg-brand-light pl-5 pr-12 text-sm font-light outline-none placeholder:text-ink-placeholder focus:ring-1 focus:ring-brand-gold/60" />
         <button type="submit" class="absolute inset-y-0 right-1 grid w-10 place-items-center text-ink-muted" aria-label="Найти">
           <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         </button>

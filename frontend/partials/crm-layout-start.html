@@ -6,7 +6,7 @@
   <div x-show="$store.crm.drawer" x-cloak x-transition.opacity class="fixed inset-0 z-40 bg-ink/45 backdrop-blur-[2px] lg:hidden" @click="$store.crm.closeDrawer()" aria-hidden="true"></div>
 
   <!-- ===================== Боковое меню CRM ===================== -->
-  <aside id="crm-menu" class="vt-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(16rem,86vw)] flex-col overflow-y-auto overscroll-contain [scrollbar-color:rgb(255_255_255/0.18)_transparent] [scrollbar-width:thin] bg-crm-sidebar px-3 py-6 text-on-dark transition-transform duration-300 motion-reduce:transition-none
+  <aside id="crm-menu" class="vt-sidebar max-lg:hidden fixed inset-y-0 left-0 z-50 flex w-[min(16rem,86vw)] flex-col overflow-y-auto overscroll-contain [scrollbar-color:rgb(255_255_255/0.18)_transparent] [scrollbar-width:thin] bg-crm-sidebar px-3 py-6 text-on-dark transition-transform duration-300 motion-reduce:transition-none
                 lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-62 lg:shrink-0 lg:translate-x-0 lg:transition-none"
          :class="$store.crm.drawer ? 'translate-x-0 shadow-lift' : '-translate-x-full invisible lg:visible'"
          @keydown.escape.window="$store.crm.closeDrawer()" aria-label="Меню CRM">
