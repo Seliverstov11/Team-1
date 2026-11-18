@@ -3,5 +3,100 @@
 
 <!-- Уведомление о действии -->
 <div x-data x-show="$store.crm.toast" x-cloak x-transition.opacity role="status"
-     class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-control bg-brand-dark px-5 py-3 text-[0.8125rem] text-brand-light shadow-lift"
+     class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 max-w-[calc(100vw-2rem)] lg:bottom-6 -translate-x-1/2 rounded-control bg-brand-dark px-5 py-3 text-[0.8125rem] text-brand-light shadow-lift"
      x-text="$store.crm.toast"></div>
+
+<!-- ===================== Телефон и планшет (< 1024px): нижняя панель вместо бургера =====================
+     До 4 разделов роли (TABS в crm.js) + «Ещё»: остальные разделы, установка, выход -->
+<nav x-data x-show="$store.crm.ready && $store.crm.session" class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Нижняя панель CRM">
+  <ul class="mx-auto grid max-w-xl" :style="`grid-template-columns: repeat(${$store.crm.tabs.length + 1}, minmax(0, 1fr))`">
+    <template x-for="i in $store.crm.tabs" :key="i.page">
+      <li><a :href="i.href" class="crm-tab-link" :class="$store.crm.isActive(i) && 'is-active'" :aria-current="$store.crm.isActive(i) && 'page'">
+        <span class="relative">
+          <svg class="size-[1.375rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path :d="$store.crm.icon(i.icon)"/></svg>
+          <span x-show="i.badge && $store.crm.badge(i.badge)" x-cloak class="counter absolute -right-3 -top-1.5 !h-4 !min-w-4 !px-1 !text-[0.5625rem]" x-text="$store.crm.badge(i.badge)"></span>
+        </span>
+        <span class="truncate" x-text="i.short ?? i.label"></span>
+      </a></li>
+    </template>
+    <!-- Всегда есть: профиль и выход для любой роли (у кладовщика других пунктов нет — тогда «Профиль») -->
+    <li><button type="button" class="crm-tab-link w-full" :class="($store.crm.moreActive || $store.crm.sheet) && 'is-active'" @click="$store.crm.openSheet()" :aria-expanded="$store.crm.sheet" aria-controls="crm-more">
+      <svg class="size-[1.375rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="$store.crm.icon($store.crm.moreItems.length ? 'more' : 'profile')"/></svg>
+      <span x-text="$store.crm.moreItems.length ? 'Ещё' : 'Профиль'"></span>
+    </button></li>
+  </ul>
+</nav>
+
+<!-- Лист «Ещё» (x-teleport работает только внутри x-data) -->
+<div x-data>
+<template x-teleport="body">
+<div x-show="$store.crm.sheet" x-cloak class="fixed inset-0 z-50 lg:hidden" @keydown.escape.window="$store.crm.closeSheet()">
+  <div class="absolute inset-0 bg-ink/45 backdrop-blur-[2px]" x-show="$store.crm.sheet" x-transition.opacity @click="$store.crm.closeSheet()" aria-hidden="true"></div>
+  <div id="crm-more" role="dialog" aria-modal="true" aria-label="Ещё разделы" x-show="$store.crm.sheet"
+       x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+       x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full"
+       class="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[1.5rem] bg-surface px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-lift">
+    <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-line" aria-hidden="true"></div>
+    <div class="flex items-center gap-3 rounded-card bg-brand-light px-4 py-3">
+      <span class="grid size-10 shrink-0 place-items-center rounded-full bg-brand-gold text-[0.8125rem] font-semibold text-crm-sidebar" x-text="$store.fmt.initials($store.crm.user.name || '?')"></span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-sm" x-text="$store.crm.user.name"></span>
+        <span class="block truncate text-[0.6875rem] text-ink-muted" x-text="$store.crm.user.title"></span>
+      </span>
+    </div>
+    <ul x-show="$store.crm.moreItems.length" class="mt-3 grid grid-cols-2 gap-2">
+      <template x-for="i in $store.crm.moreItems" :key="i.page">
+        <li><a :href="i.href" class="flex min-h-14 items-center gap-3 rounded-card border border-line px-4 py-3 text-[0.8125rem] transition active:bg-brand-light"
+               :class="$store.crm.isActive(i) && 'border-brand-gold bg-brand-gold-soft'">
+          <svg class="size-5 shrink-0 text-brand-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path :d="$store.crm.icon(i.icon)"/></svg>
+          <span class="min-w-0 flex-1" x-text="i.label"></span>
+          <span x-show="i.badge && $store.crm.badge(i.badge)" class="counter" x-text="$store.crm.badge(i.badge)"></span>
+        </a></li>
+      </template>
+    </ul>
+    <div class="mt-3 grid gap-2">
+      <button type="button" x-show="$store.pwa.canInstall" @click="$store.crm.closeSheet(); $store.pwa.install()"
+              class="flex min-h-12 items-center gap-3 rounded-card border border-brand-gold bg-brand-gold-soft px-4 text-left text-[0.8125rem]">
+        <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/></svg>
+        Установить CRM как приложение
+      </button>
+      <a href="/" class="flex min-h-12 items-center gap-3 rounded-card border border-line px-4 text-[0.8125rem]">
+        <svg class="size-5 shrink-0 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+        Открыть сайт магазина
+      </a>
+      <button type="button" @click="$store.crm.logout()" class="flex min-h-12 items-center gap-3 rounded-card border border-line px-4 text-left text-[0.8125rem] text-error">
+        <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
+        Выйти из CRM
+      </button>
+    </div>
+  </div>
+</div>
+</template>
+</div>
+
+<!-- iPhone / iPad: Safari сам не предлагает установку — показываем, где кнопка -->
+<div x-data>
+<template x-teleport="body">
+<div x-show="$store.pwa.iosHint" x-cloak class="fixed inset-0 z-50 grid items-end bg-ink/45 backdrop-blur-[2px] sm:place-items-center" @click.self="$store.pwa.iosHint = false" @keydown.escape.window="$store.pwa.iosHint = false">
+  <div role="dialog" aria-modal="true" aria-labelledby="ios-title" class="w-full rounded-t-[1.5rem] bg-surface px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-5 shadow-lift sm:max-w-sm sm:rounded-panel">
+    <div class="flex items-center gap-3">
+      <img src="/crm/icons/apple-touch-icon.png" alt="" class="size-12 rounded-xl" />
+      <div><h2 id="ios-title" class="crm-h2 !text-[1.25rem]">Значок CRM на экране «Домой»</h2>
+        <p class="text-[0.6875rem] text-ink-muted">Откроется отдельным приложением, без адресной строки</p></div>
+    </div>
+    <ol class="mt-4 space-y-3 text-[0.8125rem]">
+      <li class="flex items-start gap-3"><span class="grid size-6 shrink-0 place-items-center rounded-full bg-brand-light text-[0.6875rem] font-semibold">1</span>
+        <span>Откройте CRM в <b>Safari</b> и нажмите <b>«Поделиться»</b>
+          <svg class="inline size-5 -translate-y-0.5 text-[#007AFF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="значок Поделиться"><path d="M12 15V3M8 7l4-4 4 4M7 11H5v10h14V11h-2"/></svg>
+          внизу экрана (на iPad — вверху)</span></li>
+      <li class="flex items-start gap-3"><span class="grid size-6 shrink-0 place-items-center rounded-full bg-brand-light text-[0.6875rem] font-semibold">2</span>
+        <span>Пролистайте и выберите <b>«На экран „Домой“»</b></span></li>
+      <li class="flex items-start gap-3"><span class="grid size-6 shrink-0 place-items-center rounded-full bg-brand-light text-[0.6875rem] font-semibold">3</span>
+        <span>Нажмите <b>«Добавить»</b> — появится значок BAKELOOM CRM</span></li>
+    </ol>
+    <p class="mt-3 text-[0.6875rem] text-ink-muted">В Chrome и других браузерах на iPhone пункт тоже в меню «Поделиться», но надёжнее Safari.</p>
+    <button type="button" class="btn-primary mt-5 w-full" @click="$store.pwa.iosHint = false">Понятно</button>
+  </div>
+</div>
+</template>
+</div>

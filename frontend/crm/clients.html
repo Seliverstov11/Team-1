@@ -8,9 +8,12 @@
 <!-- @include crm-layout-start.html -->
 
 <main id="main" x-data="crmClients" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
-  <div>
-    <h1 class="crm-title text-balance">Клиенты</h1>
-    <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.fmt.count(rows.length, 'клиент', 'клиента', 'клиентов')} · карточка заводится сама по телефону из заказа`"></p>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="crm-title text-balance">Клиенты</h1>
+      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.fmt.count(rows.length, 'клиент', 'клиента', 'клиентов')} · карточка заводится сама по телефону из заказа`"></p>
+    </div>
+    <button type="button" class="btn-primary" @click="openNew()">+ Клиент</button>
   </div>
 
   <div class="flex flex-wrap items-center gap-3">
@@ -30,7 +33,7 @@
       <thead><tr><th>Клиент</th><th>Тип</th><th>Город</th><th>Каналы</th><th class="text-right">Заказов</th><th class="text-right">Сумма</th><th class="text-right">Выкуплено</th><th class="text-right">Долг</th><th>Последний</th></tr></thead>
       <tbody>
         <template x-for="c in rows" :key="c.id">
-          <tr class="cursor-pointer transition hover:bg-brand-light/60" @click="location.href = `/crm/orders.html?q=${encodeURIComponent(c.phone ?? c.name)}`">
+          <tr class="cursor-pointer transition hover:bg-brand-light/60" @click="openCard(c)" @keydown.enter="openCard(c)" tabindex="0">
             <td>
               <span class="block whitespace-nowrap font-medium" x-text="c.name"></span>
               <span class="text-[0.6875rem] text-ink-muted" x-text="c.phone ?? '—'"></span>
@@ -52,6 +55,135 @@
       </tbody>
     </table></div>
   </section>
+
+  <!-- ===================== Карточка клиента ===================== -->
+  <template x-teleport="body">
+  <div x-show="card" x-cloak x-effect="document.documentElement.classList.toggle('overflow-hidden', !!card)">
+  <template x-if="card && form">
+    <div class="crm-modal-backdrop" @keydown.escape.window="close()" @click.self="close()">
+      <div class="crm-modal max-w-[52rem]" role="dialog" aria-modal="true" aria-labelledby="cl-title">
+        <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
+          <div class="min-w-0">
+            <h2 id="cl-title" class="crm-h2 truncate" x-text="form.id ? (card.name ?? form.name) : 'Новый клиент'"></h2>
+            <p class="mt-1 text-[0.75rem] text-ink-muted" x-show="form.id" x-text="[card.phone, card.city, types[card.client_type]].filter(Boolean).join(' · ') || ' '"></p>
+          </div>
+          <button type="button" class="text-xl text-ink-muted hover:text-ink" @click="close()" aria-label="Закрыть">×</button>
+        </div>
+
+        <div class="max-h-[72dvh] overflow-y-auto">
+          <!-- Цифры по клиенту -->
+          <div x-show="form.id" class="grid grid-cols-2 gap-px border-b border-line bg-line sm:grid-cols-4">
+            <template x-for="[label, value, cls] in [['Заказов', card.orders_count ?? 0, ''], ['Сумма', $store.fmt.money($store.fmt.tiyn(card.orders_total ?? '0')), ''], ['Выкуплено', $store.fmt.money($store.fmt.tiyn(card.bought_total ?? '0')), ''], ['Долг', $store.fmt.tiyn(card.debt ?? '0') ? $store.fmt.money($store.fmt.tiyn(card.debt)) : '—', $store.fmt.tiyn(card.debt ?? '0') ? 'text-error' : '']]" :key="label">
+              <div class="bg-surface px-5 py-3"><p class="crm-label" x-text="label"></p><p class="mt-1 font-heading text-[1.375rem] font-semibold" :class="cls" x-text="value"></p></div>
+            </template>
+          </div>
+
+          <!-- Данные -->
+          <form class="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2 sm:px-7" novalidate @submit.prevent="saveClient()">
+            <label class="flex flex-col gap-1.5 sm:col-span-2">
+              <span class="text-[0.75rem]">Имя или название *</span>
+              <input type="text" x-model="form.name" class="crm-field" placeholder="Кондитерская «Мёд и мак»" />
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[0.75rem]">Телефон</span>
+              <input type="tel" x-model="form.phone" class="crm-field" placeholder="+7 (7XX) XXX-XX-XX" />
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[0.75rem]">Город</span>
+              <input type="text" x-model="form.city" class="crm-field" placeholder="Астана" />
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[0.75rem]">Тип клиента</span>
+              <select x-model="form.client_type" class="crm-field">
+                <template x-for="[id, label] in Object.entries(types)" :key="id"><option :value="id" x-text="label" :selected="form.client_type === id"></option></template>
+              </select>
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[0.75rem]">Заметка</span>
+              <input type="text" x-model="form.note" class="crm-field" placeholder="Например, забирает по пятницам" />
+            </label>
+            <div class="flex flex-wrap items-center justify-end gap-3 sm:col-span-2">
+              <a x-show="form.id" :href="`/crm/orders.html?q=${encodeURIComponent(card.phone ?? card.name ?? '')}`" class="mr-auto text-[0.75rem] text-brand-gold hover:underline">Все заказы клиента →</a>
+              <button type="submit" class="btn-primary" :disabled="saving" x-text="saving ? 'Сохраняем…' : form.id ? 'Сохранить' : 'Добавить клиента'"></button>
+            </div>
+          </form>
+
+          <p x-show="formError" class="mx-5 mb-4 rounded-control bg-error-soft px-4 py-2.5 text-[0.75rem] text-error sm:mx-7" x-text="formError"></p>
+
+          <template x-if="form.id">
+            <div class="contents">
+              <!-- Вход на сайт -->
+              <section class="border-t border-line px-5 py-5 sm:px-7">
+                <h3 class="text-[0.875rem] font-medium">Вход на сайт</h3>
+                <p class="mt-1 text-[0.75rem] text-ink-muted" x-text="card.has_account ? 'Учётная запись есть: клиент входит по телефону. Можно задать новый пароль, если забыл' : 'Учётной записи нет. Задайте пароль — клиент войдёт по телефону и увидит свои цены и историю'"></p>
+                <form class="mt-3 flex flex-wrap gap-2" novalidate @submit.prevent="setPassword()">
+                  <input type="text" x-model="pw" class="crm-field min-w-0 flex-1 font-mono" placeholder="Пароль от 8 символов" autocomplete="off" aria-label="Пароль клиента" />
+                  <button type="button" class="btn-outline" @click="suggestPw()">Придумать</button>
+                  <button type="submit" class="btn-primary" :disabled="saving || !pw" x-text="card.has_account ? 'Сменить пароль' : 'Открыть вход'"></button>
+                </form>
+              </section>
+
+              <!-- Персональные цены (ФТ-Ц-09) -->
+              <section x-show="$store.crm.can('owner')" class="border-t border-line px-5 py-5 sm:px-7">
+                <h3 class="text-[0.875rem] font-medium">Персональные цены</h3>
+                <p class="mt-1 text-[0.75rem] text-ink-muted">Действуют, когда клиент вошёл на сайт, и в заказах, оформленных на него в CRM. Для остальных — обычные цены</p>
+                <ul class="mt-3 divide-y divide-line/70 rounded-control border border-line">
+                  <template x-for="r in prices" :key="r.product_id">
+                    <li class="grid grid-cols-[minmax(0,1fr)_7.5rem_2rem] items-center gap-3 px-3 py-2 text-[0.8125rem]">
+                      <span class="min-w-0"><span class="block truncate" x-text="r.variant_name && !r.product_name.includes(r.variant_name) ? `${r.product_name}, ${r.variant_name}` : r.product_name"></span>
+                        <span class="text-[0.6875rem] text-ink-muted" x-text="`${r.sku ?? ''} · обычная ${$store.fmt.money($store.fmt.tiyn(r.retail_price))}`"></span></span>
+                      <input type="text" inputmode="decimal" class="crm-field h-9 text-right" :value="tiynToString(r.price)" @change="updatePrice(r, $event.target.value)" :aria-label="`Цена для клиента: ${r.product_name}`" />
+                      <button type="button" class="text-ink-muted hover:text-error" @click="removePrice(r)" aria-label="Убрать персональную цену">×</button>
+                    </li>
+                  </template>
+                  <li x-show="!pricesLoading && !prices.length" class="px-3 py-4 text-center text-[0.75rem] text-ink-muted">Пока нет — клиент видит обычные цены</li>
+                </ul>
+                <form class="relative mt-3 grid grid-cols-[minmax(0,1fr)_7.5rem_auto] gap-2" novalidate @submit.prevent="addPrice()">
+                  <input type="search" x-model="priceQ" @input="newPrice.product_id = ''" class="crm-field" placeholder="Товар: название или артикул" aria-label="Товар для персональной цены" />
+                  <input type="text" inputmode="decimal" x-model="newPrice.price" class="crm-field text-right" placeholder="Цена, ₸" aria-label="Персональная цена" />
+                  <button type="submit" class="btn-primary">Добавить</button>
+                  <ul x-show="priceOptions.length && !newPrice.product_id" class="absolute inset-x-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-control border border-line bg-surface shadow-lift">
+                    <template x-for="p in priceOptions" :key="p.id">
+                      <li><button type="button" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[0.8125rem] hover:bg-brand-light" @click="pickPrice(p)">
+                        <span class="min-w-0 truncate" x-text="$store.crm.productName(p)"></span>
+                        <span class="whitespace-nowrap text-[0.6875rem] text-ink-muted" x-text="`${p.sku ?? ''} · ${$store.fmt.money($store.fmt.tiyn(p.price))}`"></span>
+                      </button></li>
+                    </template>
+                  </ul>
+                </form>
+              </section>
+
+              <!-- Что покупает и последние заказы -->
+              <section class="grid grid-cols-1 gap-5 border-t border-line px-5 py-5 sm:grid-cols-2 sm:px-7">
+                <div>
+                  <h3 class="text-[0.875rem] font-medium">Чаще всего берёт</h3>
+                  <ul class="mt-2 space-y-1.5 text-[0.8125rem]">
+                    <template x-for="t in card.top_products" :key="t.product_name">
+                      <li class="flex justify-between gap-3"><span class="min-w-0 truncate" x-text="t.product_name"></span><span class="whitespace-nowrap text-ink-muted" x-text="`${$store.fmt.count(t.orders, 'раз', 'раза', 'раз')}`"></span></li>
+                    </template>
+                    <li x-show="!card.top_products?.length" class="text-ink-muted">Покупок пока нет</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 class="text-[0.875rem] font-medium">Последние заказы</h3>
+                  <ul class="mt-2 space-y-1.5 text-[0.8125rem]">
+                    <template x-for="o in (card.orders ?? []).slice(0, 6)" :key="o.id">
+                      <li><a :href="`/crm/order.html?id=${o.id}`" class="flex justify-between gap-3 hover:text-brand-gold">
+                        <span><span class="font-semibold" x-text="o.order_no"></span><span class="text-ink-muted" x-text="` · ${$store.fmt.date(o.created_at)} · ${$store.crm.statuses[o.status]?.label.toLowerCase() ?? o.status}`"></span></span>
+                        <span class="whitespace-nowrap font-medium" x-text="$store.fmt.money($store.fmt.tiyn(o.total))"></span></a></li>
+                    </template>
+                    <li x-show="!card.orders?.length" class="text-ink-muted">Заказов нет</li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+  </div>
+  </template>
 </main>
 
 <!-- @include crm-layout-end.html -->

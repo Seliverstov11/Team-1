@@ -9,13 +9,13 @@
 
 <div x-data class="mx-auto flex min-h-[calc(100dvh-2.25rem)] w-full max-w-[100rem] gap-5 p-3 sm:p-5">
 
-  <!-- Затемнение под выдвижным меню (экраны уже 1024px) -->
+  <!-- Затемнение под выдвижным меню. Бургера на узких экранах нет (решение заказчика, #47): навигация — нижняя панель -->
   <div x-show="$store.ui.drawer" x-cloak x-transition.opacity class="fixed inset-0 z-40 bg-ink/45 backdrop-blur-[2px] lg:hidden"
        @click="$store.ui.closeDrawer()" aria-hidden="true"></div>
 
   <!-- ===================== Боковое меню =====================
        ≥1024px — колонка слева; уже — выдвижная панель по кнопке «Меню» -->
-  <aside id="site-menu" class="vt-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(19rem,86vw)] flex-col overflow-y-auto overscroll-contain rounded-r-panel [scrollbar-color:rgb(255_255_255/0.18)_transparent] [scrollbar-width:thin] bg-linear-to-b from-brand-dark to-brand-dark-hover px-6 py-8 text-on-dark transition-transform duration-300 motion-reduce:transition-none
+  <aside id="site-menu" class="vt-sidebar max-lg:hidden fixed inset-y-0 left-0 z-50 flex w-[min(19rem,86vw)] flex-col overflow-y-auto overscroll-contain rounded-r-panel [scrollbar-color:rgb(255_255_255/0.18)_transparent] [scrollbar-width:thin] bg-linear-to-b from-brand-dark to-brand-dark-hover px-6 py-8 text-on-dark transition-transform duration-300 motion-reduce:transition-none
                 lg:sticky lg:inset-auto lg:top-5 lg:z-auto lg:max-h-[calc(100dvh-2.5rem)] lg:w-72 lg:shrink-0 lg:translate-x-0 lg:self-start lg:rounded-panel lg:transition-none"
          :class="$store.ui.drawer ? 'translate-x-0 shadow-lift' : '-translate-x-full invisible lg:visible'"
          @keydown.escape.window="$store.ui.closeDrawer()" aria-label="Меню сайта">
@@ -89,23 +89,30 @@
   <div class="flex min-w-0 flex-1 flex-col gap-5 sm:gap-8" :inert="$store.ui.drawer">
     <!-- шапка и контент: при переходе анимируется только контент -->
 
-    <header class="vt-topbar flex min-h-[4.625rem] flex-wrap items-center gap-x-1.5 gap-y-3 rounded-card bg-surface px-3 py-3 sm:gap-x-4 sm:px-4">
-      <button type="button" class="grid size-11 shrink-0 place-items-center rounded-control bg-brand-light text-ink transition hover:bg-brand-gold-soft lg:hidden"
-              @click="$store.ui.openDrawer()" aria-controls="site-menu" :aria-expanded="$store.ui.drawer" aria-label="Открыть меню">
-        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
-      </button>
-      <a href="/" class="mr-auto min-w-0 truncate pl-1 font-heading text-[1.375rem] font-medium leading-none text-brand-dark min-[400px]:text-[1.625rem] sm:hidden" aria-label="Bakeloom — на главную">Bakeloom</a>
-      <form action="/catalog.html" method="get" role="search" class="relative order-last flex w-full min-w-0 sm:order-none sm:w-auto sm:flex-1"
+    <!-- Узкий экран (< 1024px): как в маркетплейсах — значок, поиск и корзина одной строкой, закреплены сверху;
+         избранное и профиль — в нижней панели (#47). Компьютер: обычная шапка над контентом -->
+    <header class="vt-topbar flex items-center gap-2 bg-surface sm:gap-4
+                   max-lg:sticky max-lg:top-0 max-lg:z-30 max-lg:-mx-3 max-lg:-mt-3 max-lg:border-b max-lg:border-line max-lg:bg-surface/95 max-lg:px-3 max-lg:py-2 max-lg:shadow-[0_2px_8px_rgb(53_59_38/0.06)] max-lg:backdrop-blur
+                   sm:max-lg:-mx-5 sm:max-lg:-mt-5 sm:max-lg:px-5
+                   lg:min-h-[4.625rem] lg:rounded-card lg:px-4 lg:py-3">
+      <a href="/" class="grid size-11 shrink-0 place-items-center rounded-full bg-brand-dark lg:hidden" aria-label="Bakeloom — на главную"><img src="/img/logo.svg" alt="" class="size-9" /></a>
+      <form action="/catalog.html" method="get" role="search" class="relative flex min-w-0 flex-1"
             @submit="$store.ui.page === 'catalog' && $event.preventDefault()">
         <label class="sr-only" for="q">Поиск по названию</label>
-        <input id="q" name="q" type="search" x-model="$store.search.q" placeholder="Поиск по названию"
-               class="h-[2.875rem] w-full rounded-xl bg-brand-light pl-5 pr-12 text-sm font-light outline-none placeholder:text-ink-placeholder focus:ring-1 focus:ring-brand-gold/60" />
+        <input id="q" name="q" type="search" x-model="$store.search.q" placeholder="Поиск по названию" enterkeyhint="search"
+               class="h-11 lg:h-[2.875rem] w-full rounded-xl bg-brand-light pl-5 pr-12 text-sm font-light outline-none placeholder:text-ink-placeholder focus:ring-1 focus:ring-brand-gold/60" />
         <button type="submit" class="absolute inset-y-0 right-1 grid w-10 place-items-center text-ink-muted" aria-label="Найти">
           <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         </button>
       </form>
 
-      <a href="/account.html" data-hnav="account" class="caps flex h-11 shrink-0 items-center gap-2 rounded-control px-2.5 sm:px-3 text-[0.625rem] tracking-[0.18em] transition hover:bg-brand-light"
+      <!-- Уже в профиле — вместо ссылки на тот же профиль кнопка «Выйти» -->
+      <button type="button" x-show="$store.ui.page === 'account' && $store.account.me" x-cloak @click="$store.account.logout()"
+              class="caps max-lg:hidden flex h-11 shrink-0 items-center gap-2 rounded-control px-3 text-[0.625rem] tracking-[0.18em] text-ink-muted transition hover:bg-brand-light hover:text-error">
+        <svg class="size-[1.125rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
+        <span class="hidden xl:inline">Выйти</span>
+      </button>
+      <a href="/account.html" data-hnav="account" x-show="!($store.ui.page === 'account' && $store.account.me)" class="caps max-lg:hidden flex h-11 shrink-0 items-center gap-2 rounded-control px-2.5 sm:px-3 text-[0.625rem] tracking-[0.18em] transition hover:bg-brand-light"
          :title="$store.account.me ? 'Профиль' : 'Войти в профиль'" :aria-label="$store.account.me ? `Профиль: ${$store.account.me.name}` : 'Войти в профиль'">
         <template x-if="$store.account.me">
           <span class="grid size-7 place-items-center rounded-full bg-brand-gold text-[0.625rem] font-semibold tracking-normal text-surface" x-text="$store.fmt.initials($store.account.me.name)"></span>
@@ -116,7 +123,7 @@
         <span class="hidden max-w-[7rem] truncate xl:inline" x-text="$store.account.me ? $store.account.me.name.split(' ')[0] : 'Войти'">Войти</span>
       </a>
 
-      <a href="/favorites.html" data-hnav="favorites" class="caps relative flex h-11 shrink-0 items-center gap-2 rounded-control px-2.5 text-[0.625rem] tracking-[0.18em] transition hover:bg-brand-light sm:px-3" aria-label="Избранное">
+      <a href="/favorites.html" data-hnav="favorites" class="caps max-lg:hidden relative flex h-11 shrink-0 items-center gap-2 rounded-control px-2.5 text-[0.625rem] tracking-[0.18em] transition hover:bg-brand-light sm:px-3" aria-label="Избранное">
         <svg class="size-[1.125rem]" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
              :fill="$store.fav.count ? 'currentColor' : 'none'" :class="$store.fav.count && 'text-brand-gold'"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>
         <span class="hidden xl:inline">Избранное</span>

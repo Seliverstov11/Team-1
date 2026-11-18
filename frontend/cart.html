@@ -53,9 +53,8 @@
           <div x-show="line.available" class="col-start-2 flex h-10 w-fit items-center rounded-control bg-brand-light px-1 sm:col-start-auto" role="group" :aria-label="`Количество: ${p.name}`">
             <button type="button" @click="$store.cart.set(p, line.qty - 1)" :disabled="line.qty <= 1" aria-label="Меньше"
                     class="grid size-9 place-items-center rounded-lg transition enabled:hover:bg-surface disabled:text-ink-placeholder">−</button>
-            <input type="number" min="1" :max="bl.units(p)" :value="line.qty"
-                   @change="$store.cart.set(p, $event.target.value); $event.target.value = $store.cart.qty(p.id)"
-                   class="w-12 bg-transparent text-center text-sm font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" aria-label="Количество" />
+            <button type="button" class="min-w-12 px-1 text-center text-sm font-medium underline decoration-dotted decoration-ink-placeholder underline-offset-4"
+                    @click="$store.qtySheet.open(p, 'cart')" :aria-label="`Количество: ${line.qty}, изменить`" x-text="line.qty"></button>
             <button type="button" @click="$store.cart.set(p, line.qty + 1)" :disabled="line.qty >= bl.units(p)" aria-label="Больше"
                     class="grid size-9 place-items-center rounded-lg transition enabled:hover:bg-surface disabled:text-ink-placeholder">+</button>
           </div>
@@ -86,6 +85,17 @@
       <button type="button" class="mt-3 w-full text-center text-xs font-light text-ink-muted underline underline-offset-4 hover:text-ink"
               @click="$store.cart.clear()">Очистить корзину</button>
     </aside>
+
+    <!-- Узкий экран: итог и кнопка заказа всегда на виду, над нижней панелью (#47) -->
+    <div class="h-16 lg:hidden" aria-hidden="true"></div>
+    <div class="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-line bg-surface/95 px-4 py-2.5 shadow-subtle backdrop-blur lg:hidden">
+      <div class="mx-auto flex max-w-lg items-center justify-between gap-3">
+        <p class="min-w-0 leading-tight"><span class="block text-[0.6875rem] font-light text-ink-muted">Итого</span>
+          <span class="font-heading text-[1.5rem] font-semibold" x-text="$store.fmt.money($store.cart.total)"></span></p>
+        <a href="/checkout.html" class="btn-primary shrink-0" x-show="!$store.cart.blocked">Оформить заказ</a>
+        <button type="button" class="btn-primary shrink-0" disabled x-show="$store.cart.blocked" x-cloak>Оформить заказ</button>
+      </div>
+    </div>
   </div>
 </main>
 

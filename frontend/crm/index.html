@@ -11,7 +11,7 @@
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
       <h1 class="crm-title text-balance">Сводка</h1>
-      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="d ? `${$store.fmt.count(d.orders.count, 'заказ', 'заказа', 'заказов')} на ${$store.fmt.money($store.fmt.tiyn(d.orders.sum))} · время Казахстана` : 'Загружаем сводку…'"></p>
+      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="d ? `${periodLabel}: ${$store.fmt.count(d.orders.count, 'заказ', 'заказа', 'заказов')} на ${$store.fmt.money($store.fmt.tiyn(d.orders.sum))} · время Казахстана` : 'Загружаем сводку…'"></p>
     </div>
     <div class="flex flex-wrap gap-1.5" role="group" aria-label="Период">
       <template x-for="[id, label] in periods" :key="id">
@@ -25,22 +25,22 @@
   <!-- Цифры — GET /api/dashboard: считает сервер -->
   <section class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" :class="loading && 'opacity-60'">
     <a href="/crm/orders.html?pay=unpaid" class="crm-kpi border-l-4 border-l-error transition hover:border-brand-gold">
-      <p class="crm-label">Ждут оплаты</p>
+      <p class="crm-label">Ждут оплаты · сейчас</p>
       <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="$store.fmt.money($store.fmt.tiyn(d?.awaiting_payment.sum ?? '0'))"></p>
-      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`${$store.fmt.count(d?.awaiting_payment.count ?? 0, 'заказ', 'заказа', 'заказов')} · ${Math.round((d?.awaiting_payment_share ?? 0) * 100)}% заказов периода`"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`${$store.fmt.count(d?.awaiting_payment.count ?? 0, 'заказ', 'заказа', 'заказов')} · ${Math.round((d?.awaiting_payment_share ?? 0) * 100)}% активных заказов`"></p>
     </a>
     <a href="/crm/orders.html?status=new" class="crm-kpi border-l-4 border-l-status-new transition hover:border-brand-gold">
-      <p class="crm-label">Новые</p>
+      <p class="crm-label">Новые · сейчас</p>
       <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="d?.new_orders ?? 0"></p>
       <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`ждут подтверждения · срочных ${d?.urgent ?? 0} · проблемных ${d?.problem ?? 0}`"></p>
     </a>
     <div class="crm-kpi border-l-4 border-l-brand-dark">
-      <p class="crm-label">Поступило оплат</p>
+      <p class="crm-label" x-text="`Поступило оплат · ${periodShort}`"></p>
       <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="$store.fmt.money($store.fmt.tiyn(d?.payments_received ?? '0'))"></p>
       <p class="mt-2 text-[0.6875rem] text-ink-muted">по отметкам менеджеров, возвраты вычтены</p>
     </div>
     <a href="/crm/stock.html?level=low" class="crm-kpi border-l-4 border-l-brand-gold transition hover:border-brand-gold">
-      <p class="crm-label">Ниже минимума</p>
+      <p class="crm-label">Ниже минимума · сейчас</p>
       <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="d?.low_stock_count ?? 0"></p>
       <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`позиций к закупке · ${d?.out_of_stock_count ?? 0} нет в наличии`"></p>
     </a>
@@ -87,6 +87,7 @@
 
     <section class="crm-card p-4 sm:p-6">
       <h2 class="crm-h2">Заказы по статусам</h2>
+      <p class="mt-1 text-[0.6875rem] text-ink-muted" x-text="`созданные ${periodShort}`"></p>
       <ul class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <template x-for="r in byStatus" :key="r.s">
           <li>
@@ -107,6 +108,25 @@
           </li>
         </template>
       </ul>
+    </section>
+
+    <!-- Что продаётся лучше (ФТ-В-02): топ товаров за период — GET /api/dashboard → top_products -->
+    <section class="crm-card overflow-hidden">
+      <div class="flex items-center justify-between gap-3 px-4 pt-5 sm:px-6">
+        <div><h2 class="crm-h2">Что продаётся</h2><p class="mt-1 text-[0.6875rem] text-ink-muted" x-text="`топ товаров ${periodShort}, без отменённых`"></p></div>
+        <a x-show="$store.crm.can('owner')" href="/crm/analytics.html" class="shrink-0 text-[0.75rem] text-brand-gold hover:underline">аналитика →</a>
+      </div>
+      <ol class="mt-3 divide-y divide-line/70">
+        <template x-for="(t, i) in (d?.top_products ?? [])" :key="t.name">
+          <li class="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-[0.8125rem] sm:px-6">
+            <span class="font-heading text-[1.125rem] font-semibold text-brand-gold" x-text="i + 1"></span>
+            <span class="min-w-0"><span class="block truncate" x-text="t.name"></span>
+              <span class="text-[0.6875rem] text-ink-muted" x-text="`продано ${$store.fmt.qty(t.quantity)} · ${$store.fmt.count(t.orders, 'заказ', 'заказа', 'заказов')}`"></span></span>
+            <span class="whitespace-nowrap font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(t.sum))"></span>
+          </li>
+        </template>
+        <li x-show="d && !d.top_products?.length" class="px-6 py-8 text-center text-[0.8125rem] text-ink-muted">За период продаж нет</li>
+      </ol>
     </section>
 
     <section class="crm-card overflow-hidden">

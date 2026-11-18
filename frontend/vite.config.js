@@ -9,7 +9,7 @@ const partialsDir = resolve(root, 'partials')
 // Страницы — отдельные .html файлы (без роутера). Сайт — в корне, CRM — в папке crm/
 const pages = [
   'index', 'catalog', 'product', 'cart', 'checkout', 'favorites', 'contacts', 'account', 'tokens', '404',
-  'crm/index', 'crm/login', 'crm/orders', 'crm/order', 'crm/clients', 'crm/stock', 'crm/picking', 'crm/catalog',
+  'crm/index', 'crm/login', 'crm/orders', 'crm/order', 'crm/clients', 'crm/stock', 'crm/picking', 'crm/catalog', 'crm/analytics', 'crm/employees',
 ]
 
 // Общие куски разметки (шапка, меню, подвал, карточка товара) подставляются при сборке:

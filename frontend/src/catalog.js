@@ -55,8 +55,11 @@ export const isPersonal = p => Boolean(p?.personal_price) && tiyn(p.personal_pri
 export const lineSum = (p, qty) => lineTotal(retail(p), qty * 1000)
 
 // Доставка с сайта: Астана — 1 200 ₸, межгород — 2 500 ₸, самовывоз бесплатно
+// Как на сервере (backend site_delivery): курьер по Астане 1 200 ₸ (город не указан — тоже Астана),
+// любая другая доставка — 2 500 ₸, самовывоз бесплатно. Итог заказа всё равно считает сервер
+export const isAstana = city => { const c = String(city ?? '').trim().toLowerCase(); return !c || c.includes('астана') || c.includes('astana') }
 export const deliveryCost = (method, city) =>
-  method === 'pickup' ? 0 : /^\s*(астана|нур-султан)\s*$/i.test(city ?? '') ? 120000 : 250000
+  method === 'pickup' ? 0 : method === 'courier' && isAstana(city) ? 120000 : 250000
 
 // Подпись фасовки; у одиночных товаров она дублирует размер из характеристик — тогда не нужна
 export const variantLabel = p => p.variant_name || p.unit

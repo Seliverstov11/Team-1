@@ -1,15 +1,43 @@
-<!-- Нет в наличии (available_qty = 0) — добавить нельзя: кнопка неактивна, количества нет -->
-<div class="flex h-10 items-center justify-between rounded-control bg-brand-light px-1" x-show="$store.cart.left(p) > 0">
-  <button type="button" @click="n = Math.max(1, n - 1)" :disabled="n <= 1" aria-label="Меньше"
-          class="grid size-8 place-items-center rounded-lg text-base transition enabled:hover:bg-surface disabled:text-ink-placeholder">−</button>
-  <span class="text-[0.8125rem] font-medium" x-text="`${Math.min(n, $store.cart.left(p))} ${p.unit}`"></span>
-  <button type="button" @click="n = Math.min(n + 1, $store.cart.left(p))" :disabled="n >= $store.cart.left(p)" aria-label="Больше"
-          class="grid size-8 place-items-center rounded-lg text-base transition enabled:hover:bg-surface disabled:text-ink-placeholder">+</button>
-</div>
-<button type="button" class="mt-2.5 h-auto min-h-11 w-full whitespace-normal py-2 text-center leading-snug max-sm:px-2 max-sm:tracking-[0.08em]" :disabled="!bl.inStock(p) || $store.cart.left(p) < 1"
-        :class="$store.cart.qty(p.id) ? 'btn-primary' : 'btn-outline'"
-        @click="$store.cart.add(p, Math.min(n, $store.cart.left(p))); n = 1">
-  <span x-show="!$store.cart.qty(p.id)" x-text="bl.inStock(p) ? 'В корзину' : 'Нет в наличии'"></span>
-  <span x-show="$store.cart.qty(p.id) && $store.cart.left(p) > 0" x-text="`Ещё · в корзине ${$store.cart.qty(p.id)}`"></span>
-  <span x-show="$store.cart.qty(p.id) && $store.cart.left(p) < 1">В корзине весь остаток</span>
-</button>
+<!-- Покупка. Пока товара нет в корзине: выбрать количество и «В корзину».
+     Уже в корзине: −/+ меняют количество прямо в корзине, кнопка ведёт в корзину (повторное нажатие не добавляет ещё).
+     Число — кнопка: открывает окно «Количество» (partials/layout-end.html).
+     Нет в наличии (available_qty = 0) — «Сообщить о поступлении» -->
+<template x-if="!$store.cart.qty(p.id)">
+  <div>
+    <div class="flex h-10 items-center justify-between rounded-control bg-brand-light px-1" x-show="$store.cart.left(p) > 0">
+      <button type="button" @click="n = Math.max(1, n - 1)" :disabled="n <= 1" aria-label="Меньше"
+              class="grid size-8 place-items-center rounded-lg text-base transition enabled:hover:bg-surface disabled:text-ink-placeholder">−</button>
+      <!-- Нажать на число — окно «Количество» (вписать 100 — не 100 нажатий) -->
+      <button type="button" class="min-w-0 rounded-md px-3 py-1 text-[0.8125rem] font-medium underline decoration-dotted decoration-ink-placeholder underline-offset-4 hover:bg-surface"
+              @click="$store.qtySheet.open(p, 'add', n)" :aria-label="`Количество: ${Math.min(n, $store.cart.left(p))} ${p.unit}, изменить`"
+              x-text="`${Math.min(n, $store.cart.left(p))} ${p.unit}`"></button>
+      <button type="button" @click="n = Math.min(n + 1, $store.cart.left(p))" :disabled="n >= $store.cart.left(p)" aria-label="Больше"
+              class="grid size-8 place-items-center rounded-lg text-base transition enabled:hover:bg-surface disabled:text-ink-placeholder">+</button>
+    </div>
+    <button type="button" x-show="bl.inStock(p)" class="btn-outline mt-2.5 h-auto min-h-11 w-full whitespace-normal py-2 text-center leading-snug max-sm:px-2 max-sm:tracking-[0.08em]"
+            :disabled="$store.cart.left(p) < 1"
+            @click="$store.cart.add(p, Math.min(n, $store.cart.left(p))); $store.cart.added(p); n = 1">В корзину</button>
+    <!-- Нет в наличии: не предзаказ, а просьба перезвонить, когда привезут (ФТ-К-06) -->
+    <button type="button" x-show="!bl.inStock(p)" class="btn-outline h-auto min-h-11 w-full whitespace-normal py-2 text-center leading-snug max-sm:px-2 max-sm:tracking-[0.06em]"
+            :class="$store.restock.has(p.id) && '!border-success !text-success'"
+            @click="$store.restock.open(p)" x-text="$store.restock.has(p.id) ? 'Сообщим о поступлении ✓' : 'Сообщить о поступлении'"></button>
+  </div>
+</template>
+<template x-if="$store.cart.qty(p.id)">
+  <div>
+    <div class="flex h-10 items-center justify-between rounded-control border border-brand-gold-light bg-brand-gold-soft px-1">
+      <button type="button" @click="$store.cart.qty(p.id) > 1 ? $store.cart.set(p, $store.cart.qty(p.id) - 1) : $store.cart.remove(p.id)"
+              :aria-label="$store.cart.qty(p.id) > 1 ? 'Убрать одну' : 'Убрать из корзины'"
+              class="grid size-8 place-items-center rounded-lg text-base transition hover:bg-surface">−</button>
+      <button type="button" class="min-w-0 truncate rounded-md px-2 py-1 text-[0.8125rem] font-medium hover:bg-surface"
+              @click="$store.qtySheet.open(p, 'cart')" :aria-label="`В корзине ${$store.cart.qty(p.id)} ${p.unit}, изменить`">
+        <span class="text-ink-muted max-[380px]:hidden">В корзине </span><span class="underline decoration-dotted decoration-ink-placeholder underline-offset-4" x-text="`${$store.cart.qty(p.id)} ${p.unit}`"></span>
+      </button>
+      <button type="button" @click="$store.cart.set(p, $store.cart.qty(p.id) + 1)" :disabled="$store.cart.left(p) < 1"
+              :aria-label="$store.cart.left(p) < 1 ? 'В корзине весь остаток' : 'Добавить одну'"
+              class="grid size-8 place-items-center rounded-lg text-base transition enabled:hover:bg-surface disabled:text-ink-placeholder">+</button>
+    </div>
+    <a href="/cart.html" class="btn-primary mt-2.5 hover:border-brand-dark-hover hover:bg-brand-dark-hover h-auto min-h-11 w-full whitespace-normal py-2 text-center leading-snug max-sm:px-2 max-sm:tracking-[0.08em]">Перейти в корзину →</a>
+    <p x-show="$store.cart.left(p) < 1" class="mt-1.5 text-center text-[0.6875rem] text-ink-muted">В корзине весь остаток</p>
+  </div>
+</template>

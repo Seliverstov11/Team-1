@@ -1,14 +1,15 @@
     <footer class="mt-auto rounded-card bg-surface px-5 py-6 sm:px-8 sm:py-7">
       <div class="grid grid-cols-1 items-start gap-7 sm:grid-cols-2 sm:gap-10 xl:grid-cols-[1fr_1fr_1fr_auto]">
-        <div>
+        <div x-data>
           <p class="eyebrow">Контакты</p>
-          <p class="mt-3 font-heading text-[1.375rem] font-medium">+7 (700) 000-00-00</p>
-          <p class="mt-1 text-[0.8125rem] font-light text-ink-muted">info@example.kz</p>
+          <a :href="$store.contacts.tel" class="mt-3 block font-heading text-[1.375rem] font-medium hover:text-brand-gold" :class="!$store.contacts.tel && 'pointer-events-none'" x-text="$store.contacts.phoneText"></a>
+          <a x-show="$store.contacts.wa" x-cloak :href="$store.contacts.wa" target="_blank" rel="noopener" class="mt-1 inline-flex items-center gap-1.5 text-[0.8125rem] text-success hover:underline">Написать в WhatsApp</a>
+          <p x-show="$store.contacts.email" x-cloak class="mt-1 text-[0.8125rem] font-light text-ink-muted" x-text="$store.contacts.email"></p>
         </div>
-        <div>
-          <p class="eyebrow">Режим работы</p>
-          <p class="mt-3 text-sm">Ежедневно 9:00 — 21:00</p>
-          <p class="mt-1 text-[0.8125rem] font-light text-ink-muted">Адрес уточняется</p>
+        <div x-data>
+          <p class="eyebrow">Адрес и режим работы</p>
+          <a :href="$store.contacts.map" target="_blank" rel="noopener" class="mt-3 block text-sm hover:text-brand-gold" x-text="$store.contacts.fullAddress"></a>
+          <p class="mt-1 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.contacts.hours} · самовывоз бесплатно`"></p>
         </div>
         <nav aria-label="Разделы">
           <p class="eyebrow">Разделы</p>
@@ -19,15 +20,133 @@
             <li><a href="/contacts.html" class="hover:text-brand-gold">Контакты</a></li>
           </ul>
         </nav>
-        <div class="max-w-[18rem] self-center xl:max-w-[14rem] xl:text-right">
-          <span class="demo-tag">Демо-контакты</span>
-          <p class="mt-2 text-[0.6875rem] font-light leading-relaxed text-ink-muted">Телефон, почта, адрес и часы работы — заглушки до подтверждения заказчиком</p>
+        <div x-data x-show="!$store.contacts.complete" class="max-w-[18rem] self-center xl:max-w-[14rem] xl:text-right">
+          <span class="demo-tag">Уточняется</span>
+          <p class="mt-2 text-[0.6875rem] font-light leading-relaxed text-ink-muted">Телефон и часы работы — уточняем у магазина</p>
         </div>
       </div>
       <div class="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-[0.6875rem] font-light text-ink-muted">
-        <p>© 2026 Bakeloom</p>
+        <p>© 2026 BAKELOOM</p>
         <a href="/crm/" class="hover:text-brand-gold">Вход для сотрудников — CRM →</a>
       </div>
     </footer>
+    <!-- место под нижнюю панель, чтобы она не закрывала подвал -->
+    <div class="bottom-spacer shrink-0 lg:hidden" aria-hidden="true"></div>
   </div>
 </div>
+
+<!-- Добавлено в корзину: над нижней панелью на телефоне, в углу на компьютере -->
+<div x-data x-show="$store.cart.toast" x-cloak x-transition.opacity role="status" aria-live="polite"
+     class="fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-3 rounded-control bg-brand-dark px-4 py-3 text-brand-light shadow-lift lg:inset-x-auto lg:bottom-6 lg:right-6">
+  <svg class="size-5 shrink-0 text-brand-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+  <p class="min-w-0 flex-1 text-[0.8125rem] leading-snug"><span class="block truncate" x-text="$store.cart.toast?.name"></span>
+    <span class="text-[0.6875rem] text-on-dark-muted" x-text="`В корзине ${$store.cart.toast?.qty} ${$store.cart.toast?.unit}`"></span></p>
+  <a href="/cart.html" class="caps shrink-0 rounded-control bg-brand-gold px-3 py-2 text-[0.625rem] tracking-[0.14em] text-surface hover:bg-brand-gold-hover">В корзину →</a>
+</div>
+
+<!-- ===================== Окно «Количество» =====================
+     Одно поле на странице: Enter или «Готово» применяют и закрывают клавиатуру -->
+<div x-data x-show="$store.qtySheet.p" x-cloak class="fixed inset-0 z-50 grid items-end sm:place-items-center" @keydown.escape.window="$store.qtySheet.close()">
+  <div class="absolute inset-0 bg-ink/45 backdrop-blur-[2px]" @click="$store.qtySheet.close()" aria-hidden="true"></div>
+  <form x-show="$store.qtySheet.p" x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="translate-y-full sm:translate-y-4 sm:opacity-0"
+        class="relative w-full rounded-t-[1.5rem] bg-surface px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-lift sm:max-w-sm sm:rounded-panel sm:pb-5"
+        role="dialog" aria-modal="true" aria-labelledby="qty-title" novalidate @submit.prevent="$store.qtySheet.apply()">
+    <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden="true"></div>
+    <template x-if="$store.qtySheet.p">
+      <div>
+        <p id="qty-title" class="eyebrow" x-text="$store.qtySheet.mode === 'cart' ? 'Количество в корзине' : 'Сколько положить в корзину'"></p>
+        <p class="mt-2 line-clamp-2 text-sm" x-text="$store.qtySheet.p.name"></p>
+        <p class="mt-0.5 text-[0.6875rem] font-light text-ink-muted" x-text="`В наличии: ${$store.qtySheet.max} ${$store.qtySheet.p.unit}`"></p>
+        <div class="mt-4 flex items-center gap-2">
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-control bg-brand-light text-xl" @click="$store.qtySheet.step(-1)" aria-label="Меньше">−</button>
+          <label class="relative flex-1">
+            <span class="sr-only">Количество</span>
+            <input id="qty-sheet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off"
+                   x-model="$store.qtySheet.value" @focus="$event.target.select()"
+                   class="h-12 w-full rounded-control border border-line text-center font-heading text-[1.75rem] font-semibold outline-none focus:border-brand-gold" />
+            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-ink-muted" x-text="$store.qtySheet.p.unit"></span>
+          </label>
+          <button type="button" class="grid size-12 shrink-0 place-items-center rounded-control bg-brand-light text-xl" @click="$store.qtySheet.step(1)" aria-label="Больше">+</button>
+        </div>
+        <div x-show="$store.qtySheet.quick.length" class="mt-3 flex flex-wrap gap-2">
+          <template x-for="v in $store.qtySheet.quick" :key="v">
+            <button type="button" class="chip" :class="$store.qtySheet.n === v && 'is-active'" @click="$store.qtySheet.value = String(v)" x-text="v"></button>
+          </template>
+          <button type="button" class="chip" @click="$store.qtySheet.value = String($store.qtySheet.max)" x-text="`все ${$store.qtySheet.max}`"></button>
+        </div>
+        <p x-show="Number($store.qtySheet.value) > $store.qtySheet.max" class="mt-2 text-[0.6875rem] text-status-confirmed" x-text="`Больше нет — положим ${$store.qtySheet.max}`"></p>
+        <div class="mt-5 grid grid-cols-[auto_1fr] gap-3">
+          <button type="button" class="btn-outline" @click="$store.qtySheet.close()">Отмена</button>
+          <button type="submit" class="btn-primary" :disabled="$store.qtySheet.mode === 'add' && !$store.qtySheet.n"
+                  x-text="$store.qtySheet.mode === 'cart' ? ($store.qtySheet.n ? 'Готово' : 'Убрать из корзины') : `В корзину · ${$store.qtySheet.n} ${$store.qtySheet.p.unit}`"></button>
+        </div>
+      </div>
+    </template>
+  </form>
+</div>
+
+<!-- ===================== Окно «Сообщить о поступлении» ===================== -->
+<div x-data x-show="$store.restock.p" x-cloak class="fixed inset-0 z-50 grid items-end sm:place-items-center" @keydown.escape.window="$store.restock.close()">
+  <div class="absolute inset-0 bg-ink/45 backdrop-blur-[2px]" @click="$store.restock.close()" aria-hidden="true"></div>
+  <form x-show="$store.restock.p" x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="translate-y-full sm:translate-y-4 sm:opacity-0"
+        class="relative w-full rounded-t-[1.5rem] bg-surface px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-lift sm:max-w-sm sm:rounded-panel sm:pb-5"
+        role="dialog" aria-modal="true" aria-labelledby="restock-title" novalidate @submit.prevent="$store.restock.submit()">
+    <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" aria-hidden="true"></div>
+    <template x-if="$store.restock.p && !$store.restock.done">
+      <div class="flex flex-col gap-3">
+        <div>
+          <p id="restock-title" class="eyebrow">Сообщить о поступлении</p>
+          <p class="mt-2 line-clamp-2 text-sm" x-text="$store.restock.p.name"></p>
+          <p class="mt-1 text-[0.75rem] font-light text-ink-muted">Сейчас нет в наличии. Оставьте телефон — менеджер позвонит, когда товар привезут. Это не заказ и не предоплата</p>
+        </div>
+        <input type="text" x-model="$store.restock.form.name" class="field" placeholder="Ваше имя" autocomplete="name" aria-label="Имя" />
+        <input type="tel" x-model="$store.restock.form.phone" @input="$store.restock.form.phone = $store.fmt.phone($store.restock.form.phone)" class="field" placeholder="+7 (7XX) XXX-XX-XX" autocomplete="tel" aria-label="Телефон" />
+        <input type="text" inputmode="numeric" x-model="$store.restock.form.qty" class="field" :placeholder="`Сколько нужно, ${$store.restock.p.unit} (необязательно)`" aria-label="Сколько нужно" enterkeyhint="send" />
+        <p x-show="$store.restock.error" class="rounded-xl bg-error-soft px-4 py-2.5 text-xs text-error" x-text="$store.restock.error"></p>
+        <div class="mt-1 grid grid-cols-[auto_1fr] gap-3">
+          <button type="button" class="btn-outline" @click="$store.restock.close()">Отмена</button>
+          <button type="submit" class="btn-primary" :disabled="$store.restock.busy" x-text="$store.restock.busy ? 'Отправляем…' : 'Сообщите мне'"></button>
+        </div>
+      </div>
+    </template>
+    <template x-if="$store.restock.p && $store.restock.done">
+      <div class="py-2 text-center">
+        <span class="mx-auto grid size-12 place-items-center rounded-full bg-success-soft text-success">
+          <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+        <p class="mt-3 font-heading text-[1.375rem] font-medium">Сообщим о поступлении</p>
+        <p class="mt-1 text-[0.8125rem] font-light text-ink-muted" x-text="`Позвоним на ${$store.restock.form.phone}, когда «${$store.restock.p.name}» снова будет в наличии`"></p>
+        <button type="button" class="btn-primary mt-5 w-full" @click="$store.restock.close()">Понятно</button>
+      </div>
+    </template>
+  </form>
+</div>
+
+<!-- Сотрудник на сайте: вернуться в CRM (над нижней панелью на телефоне, в углу на компьютере) -->
+<a x-data x-show="$store.ui.staff" x-cloak href="/crm/"
+   class="caps fixed left-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 inline-flex items-center gap-2 rounded-full bg-crm-sidebar px-4 py-2.5 text-[0.625rem] tracking-[0.14em] text-brand-light shadow-lift lg:bottom-6 lg:left-auto lg:right-6">
+  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+  Вернуться в CRM
+</a>
+
+<!-- ===================== Нижняя панель (< 1024px, #47) =====================
+     Решение заказчика: Главная · Каталог · Избранное · Профиль; корзина — только в шапке, бургера нет.
+     Активный пункт — CSS по <body data-page>, как в боковом меню -->
+<nav x-data class="bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Основное меню">
+  <ul class="mx-auto grid max-w-lg grid-cols-4">
+    <li><a href="/" data-bnav="home" class="bnav-link">
+      <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg>
+      <span>Главная</span></a></li>
+    <li><a href="/catalog.html" data-bnav="catalog" class="bnav-link">
+      <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>
+      <span>Каталог</span></a></li>
+    <li><a href="/favorites.html" data-bnav="favorites" class="bnav-link" :aria-label="$store.fav.count ? `Избранное: ${$store.fav.count}` : 'Избранное'">
+      <span class="relative">
+        <svg class="size-5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" :fill="$store.fav.count ? 'currentColor' : 'none'" fill="none" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>
+        <span class="counter absolute -right-2.5 -top-1.5 !h-4 !min-w-4 !px-1 !text-[0.5625rem]" x-show="$store.fav.count" x-text="$store.fav.count" x-cloak></span>
+      </span>
+      <span>Избранное</span></a></li>
+    <li><a href="/account.html" data-bnav="account" class="bnav-link" :aria-label="$store.account.me ? `Профиль: ${$store.account.me.name}` : 'Профиль'">
+      <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg>
+      <span>Профиль</span></a></li>
+  </ul>
+</nav>

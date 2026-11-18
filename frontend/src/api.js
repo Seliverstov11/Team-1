@@ -151,14 +151,44 @@ export const api = {
   // Клиенты и сотрудники
   clients: params => all('/clients', params),
   client: cid => request('GET', `/clients/${id(cid)}`),
+  // { name, phone?, city?, client_type?, note? } — менеджер и владелец
+  createClient: body => request('POST', '/clients', body),
+  updateClient: (cid, body) => request('PATCH', `/clients/${id(cid)}`, body),
+  // Вход на сайт для клиента: пароль задаёт сотрудник (клиент потом меняет сам)
+  setClientPassword: (cid, password) => request('POST', `/clients/${id(cid)}/password`, { password }),
+  // Персональные цены (ФТ-Ц-09) — только владелец
+  clientPrices: cid => request('GET', `/clients/${id(cid)}/prices`),
+  setClientPrice: (cid, pid, price) => request('PUT', `/clients/${id(cid)}/prices/${id(pid)}`, { price }),
+  deleteClientPrice: (cid, pid) => request('DELETE', `/clients/${id(cid)}/prices/${id(pid)}`),
+
   employees: () => request('GET', '/employees'),
+  // { name, login, role: admin|manager|warehouse, password, phone? } — только владелец
+  createEmployee: body => request('POST', '/employees', body),
+  // { name?, login?, role?, password?, phone?, is_active? }; последнего владельца сервер отключить не даст
+  updateEmployee: (eid, body) => request('PATCH', `/employees/${id(eid)}`, body),
+
+  // Категории — только владелец; удалить можно только пустую
+  createCategory: body => request('POST', '/catalog/categories', body),
+  updateCategory: (cid, body) => request('PATCH', `/catalog/categories/${id(cid)}`, body),
+  deleteCategory: cid => request('DELETE', `/catalog/categories/${id(cid)}`),
 
   // Профиль покупателя
   me: () => request('GET', '/me'),
   updateMe: body => request('PATCH', '/me', body),
   myOrders: () => request('GET', '/me/orders'),
+  // Избранное и корзина вошедшего покупателя — общие для всех его устройств
+  favorites: () => request('GET', '/me/favorites'),
+  setFavorites: keys => request('PUT', '/me/favorites', keys),
+  myCart: () => request('GET', '/me/cart'),
+  setCart: items => request('PUT', '/me/cart', items),
+  // «Сообщить о поступлении»: { product_id, name?, phone?, qty? }; список и отметки — CRM
+  restockRequest: body => request('POST', '/restock', body),
+  restockList: status => request('GET', `/restock${query({ status })}`),
+  restockUpdate: (rid, status) => request('PATCH', `/restock/${id(rid)}`, { status }),
 
   // Сводка
   dashboard: period => request('GET', `/dashboard${query({ period })}`),
+  // Раздел аналитики владельца (ФТ-В-04): каналы, города, отмены, топы, устройства, последний вход
+  analytics: period => request('GET', `/analytics${query({ period })}`),
   visit: body => request('POST', '/analytics/visit', body).catch(() => null),
 }
