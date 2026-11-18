@@ -95,7 +95,7 @@
                    max-lg:sticky max-lg:top-0 max-lg:z-30 max-lg:-mx-3 max-lg:-mt-3 max-lg:border-b max-lg:border-line max-lg:bg-surface/95 max-lg:px-3 max-lg:py-2 max-lg:shadow-[0_2px_8px_rgb(53_59_38/0.06)] max-lg:backdrop-blur
                    sm:max-lg:-mx-5 sm:max-lg:-mt-5 sm:max-lg:px-5
                    lg:min-h-[4.625rem] lg:rounded-card lg:px-4 lg:py-3">
-      <a href="/" class="shrink-0 lg:hidden" aria-label="Bakeloom — на главную"><img src="/img/logo.svg" alt="" class="size-10" /></a>
+      <a href="/" class="grid size-11 shrink-0 place-items-center rounded-full bg-brand-dark lg:hidden" aria-label="Bakeloom — на главную"><img src="/img/logo.svg" alt="" class="size-9" /></a>
       <form action="/catalog.html" method="get" role="search" class="relative flex min-w-0 flex-1"
             @submit="$store.ui.page === 'catalog' && $event.preventDefault()">
         <label class="sr-only" for="q">Поиск по названию</label>
@@ -106,7 +106,13 @@
         </button>
       </form>
 
-      <a href="/account.html" data-hnav="account" class="caps max-lg:hidden flex h-11 shrink-0 items-center gap-2 rounded-control px-2.5 sm:px-3 text-[0.625rem] tracking-[0.18em] transition hover:bg-brand-light"
+      <!-- Уже в профиле — вместо ссылки на тот же профиль кнопка «Выйти» -->
+      <button type="button" x-show="$store.ui.page === 'account' && $store.account.me" x-cloak @click="$store.account.logout()"
+              class="caps max-lg:hidden flex h-11 shrink-0 items-center gap-2 rounded-control px-3 text-[0.625rem] tracking-[0.18em] text-ink-muted transition hover:bg-brand-light hover:text-error">
+        <svg class="size-[1.125rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
+        <span class="hidden xl:inline">Выйти</span>
+      </button>
+      <a href="/account.html" data-hnav="account" x-show="!($store.ui.page === 'account' && $store.account.me)" class="caps max-lg:hidden flex h-11 shrink-0 items-center gap-2 rounded-control px-2.5 sm:px-3 text-[0.625rem] tracking-[0.18em] transition hover:bg-brand-light"
          :title="$store.account.me ? 'Профиль' : 'Войти в профиль'" :aria-label="$store.account.me ? `Профиль: ${$store.account.me.name}` : 'Войти в профиль'">
         <template x-if="$store.account.me">
           <span class="grid size-7 place-items-center rounded-full bg-brand-gold text-[0.625rem] font-semibold tracking-normal text-surface" x-text="$store.fmt.initials($store.account.me.name)"></span>

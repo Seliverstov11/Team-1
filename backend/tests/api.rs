@@ -463,3 +463,69 @@ async fn у_отменённого_после_возврата_нет_долга
     assert_eq!(s, StatusCode::OK);
     assert_eq!(v["due"], "0.00");
 }
+
+#[tokio::test]
+async fn избранное_и_корзина_одни_на_всех_устройствах() {
+    let t = setup().await;
+    let (s, v) = t.post("/api/auth/client/register", None, json!({ "name": "Данил", "phone": "+7 701 000 99 88", "password": "123456" })).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let phone_token = v["token"].as_str().unwrap().to_string();
+    let (_, v) = t.post("/api/auth/client/login", None, json!({ "phone": "87010009988", "password": "123456" })).await;
+    let pc_token = v["token"].as_str().unwrap().to_string();
+    let pid = t.product().await;
+
+    // Телефон: добавил в избранное и в корзину
+    let (s, v) = t.call(Method::PUT, "/api/me/favorites", Some(&phone_token), Some(json!(["g-1", pid.clone(), "g-1"]))).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let (s, v) = t.call(Method::PUT, "/api/me/cart", Some(&phone_token), Some(json!({ pid.clone(): 3, "нет-такого": 2, "p-zero": 0 }))).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v, json!({ pid.clone(): 3 }), "неизвестные товары и нули отброшены");
+
+    // Компьютер: видит то же самое
+    let (_, fav) = t.get("/api/me/favorites", Some(&pc_token)).await;
+    assert_eq!(fav, json!(["g-1", pid.clone()]));
+    let (_, cart) = t.get("/api/me/cart", Some(&pc_token)).await;
+    assert_eq!(cart, json!({ pid.clone(): 3 }));
+
+    // Очистил корзину на компьютере — пусто и на телефоне
+    t.call(Method::PUT, "/api/me/cart", Some(&pc_token), Some(json!({}))).await;
+    assert_eq!(t.get("/api/me/cart", Some(&phone_token)).await.1, json!({}));
+
+    // Без входа и сотруднику — нельзя
+    assert_eq!(t.get("/api/me/favorites", None).await.0, StatusCode::UNAUTHORIZED);
+    let owner = t.login("owner").await;
+    assert_eq!(t.get("/api/me/cart", Some(&owner)).await.0, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn сообщить_о_поступлении() {
+    let t = setup().await;
+    let pid = t.product().await;
+    let owner = t.login("owner").await;
+    let sklad = t.login("sklad").await;
+
+    // Гость без телефона — ошибка; с телефоном — заявка
+    let (s, _) = t.post("/api/restock", None, json!({ "product_id": pid, "name": "Аня" })).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, v) = t.post("/api/restock", None, json!({ "product_id": pid, "name": "Аня", "phone": "+7 702 555 11 22", "qty": 10 })).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    assert_eq!(v["status"], "waiting");
+
+    // Повтор с того же телефона не плодит заявки — обновляет количество
+    let (_, v2) = t.post("/api/restock", None, json!({ "product_id": pid, "name": "Аня", "phone": "87025551122", "qty": 20 })).await;
+    assert_eq!(v2["id"], id.as_str());
+    assert_eq!(v2["qty"], 20);
+
+    // Менеджер видит, кладовщик — нет; отметил «сообщили»
+    let (s, list) = t.get("/api/restock", Some(&owner)).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(list.as_array().unwrap().len(), 1);
+    assert_eq!(t.get("/api/restock", Some(&sklad)).await.0, StatusCode::FORBIDDEN);
+    assert_eq!(t.get("/api/restock", None).await.0, StatusCode::UNAUTHORIZED);
+    let (s, v) = t.patch(&format!("/api/restock/{id}"), Some(&owner), json!({ "status": "notified" })).await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v["status"], "notified");
+    assert_eq!(t.get("/api/restock", Some(&owner)).await.1.as_array().unwrap().len(), 0, "в «ждут» больше нет");
+    assert_eq!(t.get("/api/restock?status=all", Some(&owner)).await.1.as_array().unwrap().len(), 1);
+}

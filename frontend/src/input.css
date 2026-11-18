@@ -269,3 +269,21 @@
 /* Поле количества без стрелок браузера: рядом есть свои − и + */
 .qty-input { -moz-appearance: textfield; appearance: textfield; }
 .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ---------- CRM: окна на телефоне — на весь экран, кнопки внизу всегда видны ---------- */
+@media (max-width: 639px) {
+  .crm-modal-backdrop { padding: 0; place-items: stretch; }
+  .crm-modal { display: flex; flex-direction: column; max-width: none !important; height: 100dvh; border-radius: 0; }
+  .crm-modal > * { flex-shrink: 0; }
+  /* середина окна прокручивается, шапка и кнопки остаются на месте */
+  .crm-modal > [class*="overflow-y-auto"], .crm-modal > div:not(:first-child):not(:last-child) {
+    flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; overscroll-behavior: contain;
+  }
+}
+
+/* ---------- Низ страницы на телефоне: подвал не прячется под нижней панелью ----------
+   В корзине и оформлении над панелью ещё плашка с итогом — места нужно больше */
+.bottom-spacer { height: calc(4.75rem + env(safe-area-inset-bottom)); }
+[data-page="cart"] .bottom-spacer, [data-page="checkout"] .bottom-spacer { height: calc(9.5rem + env(safe-area-inset-bottom)); }
+/* В корзине кнопка «Корзина» в шапке не нужна — мы уже в ней */
+[data-page="cart"] [data-hnav="cart"] { display: none; }

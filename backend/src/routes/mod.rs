@@ -5,6 +5,7 @@ pub mod employees;
 pub mod invoice;
 pub mod me;
 pub mod orders;
+pub mod restock;
 pub mod warehouse;
 
 use axum::Router;
@@ -24,6 +25,7 @@ pub fn router() -> Router<Db> {
         .nest("/clients", clients::router())
         .nest("/employees", employees::router())
         .nest("/me", me::router())
+        .nest("/restock", restock::router())
         .merge(dashboard::router())
 }
 

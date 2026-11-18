@@ -176,6 +176,15 @@ export const api = {
   me: () => request('GET', '/me'),
   updateMe: body => request('PATCH', '/me', body),
   myOrders: () => request('GET', '/me/orders'),
+  // Избранное и корзина вошедшего покупателя — общие для всех его устройств
+  favorites: () => request('GET', '/me/favorites'),
+  setFavorites: keys => request('PUT', '/me/favorites', keys),
+  myCart: () => request('GET', '/me/cart'),
+  setCart: items => request('PUT', '/me/cart', items),
+  // «Сообщить о поступлении»: { product_id, name?, phone?, qty? }; список и отметки — CRM
+  restockRequest: body => request('POST', '/restock', body),
+  restockList: status => request('GET', `/restock${query({ status })}`),
+  restockUpdate: (rid, status) => request('PATCH', `/restock/${id(rid)}`, { status }),
 
   // Сводка
   dashboard: period => request('GET', `/dashboard${query({ period })}`),

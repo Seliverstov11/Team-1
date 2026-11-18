@@ -54,17 +54,17 @@
       <div x-show="open" x-cloak x-transition.opacity class="absolute inset-x-0 bottom-full mb-2 rounded-card bg-surface p-2 text-ink shadow-lift">
         <button type="button" class="flex w-full items-center gap-3 rounded-control px-3 py-2 text-left text-[0.8125rem] transition hover:bg-brand-light" @click="$store.crm.logout()">
           <svg class="size-4 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
-          Выйти
+          Выйти из CRM
         </button>
       </div>
     </div>
   </aside>
 
   <!-- ===================== Основная колонка ===================== -->
-  <div class="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0" :inert="$store.crm.drawer || $store.crm.sheet">
+  <div class="flex min-w-0 flex-1 flex-col overflow-x-clip pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0" :inert="$store.crm.drawer || $store.crm.sheet">
     <header class="vt-topbar sticky top-0 z-20 flex h-16 items-center pt-[env(safe-area-inset-top)] box-content gap-3 border-b border-line bg-brand-light/90 px-4 backdrop-blur sm:gap-4 sm:px-6 xl:px-8">
       <!-- Телефон: бургера нет — разделы в нижней панели (crm-layout-end.html), здесь только логотип -->
-      <a href="/crm/" class="shrink-0 lg:hidden" aria-label="CRM — на главную"><img src="/img/logo.svg" alt="" class="h-9 w-auto" /></a>
+      <a href="/crm/" class="grid size-10 shrink-0 place-items-center rounded-full bg-crm-sidebar lg:hidden" aria-label="CRM — на главную"><img src="/img/logo.svg" alt="" class="size-8" /></a>
       <form x-show="$store.crm.can('office')" action="/crm/orders.html" method="get" role="search" class="relative min-w-0 flex-1 sm:max-w-[26rem]">
         <label class="sr-only" for="crm-q">Поиск заказа</label>
         <svg class="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>

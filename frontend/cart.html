@@ -53,9 +53,8 @@
           <div x-show="line.available" class="col-start-2 flex h-10 w-fit items-center rounded-control bg-brand-light px-1 sm:col-start-auto" role="group" :aria-label="`Количество: ${p.name}`">
             <button type="button" @click="$store.cart.set(p, line.qty - 1)" :disabled="line.qty <= 1" aria-label="Меньше"
                     class="grid size-9 place-items-center rounded-lg transition enabled:hover:bg-surface disabled:text-ink-placeholder">−</button>
-            <input type="number" min="1" :max="bl.units(p)" :value="line.qty"
-                   @change="$store.cart.set(p, $event.target.value); $event.target.value = $store.cart.qty(p.id)"
-                   class="w-12 bg-transparent text-center text-sm font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" aria-label="Количество" />
+            <button type="button" class="min-w-12 px-1 text-center text-sm font-medium underline decoration-dotted decoration-ink-placeholder underline-offset-4"
+                    @click="$store.qtySheet.open(p, 'cart')" :aria-label="`Количество: ${line.qty}, изменить`" x-text="line.qty"></button>
             <button type="button" @click="$store.cart.set(p, line.qty + 1)" :disabled="line.qty >= bl.units(p)" aria-label="Больше"
                     class="grid size-9 place-items-center rounded-lg transition enabled:hover:bg-surface disabled:text-ink-placeholder">+</button>
           </div>

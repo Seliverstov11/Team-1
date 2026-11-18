@@ -20,6 +20,8 @@ const CART_KEY = 'bakeloom.cart.v2'      // { id фасовки: количес�
 const DATA_KEY = 'bakeloom.catalog.v2'   // кэш каталога на время сессии
 const MENU_KEY = 'bakeloom.menu'
 const FAV_KEY = 'bakeloom.favorites.v2'  // { id карточки (group_id): true }
+const RESTOCK_KEY = 'bakeloom.restock.v1'  // { id товара: true } — уже просили сообщить о поступлении
+const SYNC_KEY = 'bakeloom.sync.v1'       // id покупателя, с которым уже слили избранное и корзину на этом устройстве
 const ME_KEY = 'bakeloom.me.v2'          // профиль из /api/me + адрес доставки по умолчанию (только в браузере)
 const LOCK_KEY = 'bakeloom.login.lock'   // { fails, until } — пауза после 5 неудачных входов
 
@@ -30,6 +32,14 @@ const LOCK_KEY = 'bakeloom.login.lock'   // { fails, until } — пауза по
 document.addEventListener('alpine:init', () => {
   Alpine.store('ui', {
     page: document.body.dataset.page ?? '',
+    // Сотрудник открыл сайт из CRM — показываем «← В CRM», чтобы было понятно, как вернуться
+    staff: (() => {
+      // сессия CRM хранится отдельно от покупательской (api.js: bakeloom.crm.session)
+      try {
+        const s = JSON.parse(localStorage.getItem('bakeloom.crm.session'))
+        return s?.kind === 'employee' && (!s.expires_at || new Date(s.expires_at) > new Date())
+      } catch { return false }
+    })(),
     section: params.get('section') ?? '',
     category: params.get('category') ?? '',
     catalogOpen: sessionStorage.getItem(MENU_KEY) !== '0',
@@ -124,7 +134,7 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('cart', {
     items: persisted(CART_KEY, {}),
     adjusted: [],
-    persist() { save(CART_KEY, this.items) },
+    persist() { save(CART_KEY, this.items); Alpine.store('sync')?.queue('cart') },
     qty(id) { return this.items[id] ?? 0 },
     left(p) { return availableUnits(p) - this.qty(p.id) },
     add(p, n = 1) {
@@ -190,8 +200,66 @@ document.addEventListener('alpine:init', () => {
       if (this.ids[id]) delete this.ids[id]
       else this.ids[id] = true
       save(FAV_KEY, this.ids)
+      Alpine.store('sync')?.queue('fav')
     },
     get count() { return Object.keys(this.ids).length },
+  })
+
+  // Окно «Количество»: одно поле ввода на странице вместо поля в каждой карточке — на iPhone
+  // поля в карточках давали стрелки «далее» и не закрывали клавиатуру (замечание команды 18.11)
+  Alpine.store('qtySheet', {
+    p: null,
+    mode: 'add',      // add — положить в корзину; cart — изменить количество в корзине
+    value: '',
+    open(p, mode = 'add', start = 1) {
+      const cart = Alpine.store('cart')
+      this.p = p; this.mode = mode
+      this.value = String(mode === 'cart' ? cart.qty(p.id) : Math.min(start, cart.left(p)))
+      document.documentElement.classList.add('overflow-hidden')
+      requestAnimationFrame(() => { const el = document.getElementById('qty-sheet-input'); el?.focus(); el?.select() })
+    },
+    close() { this.p = null; document.documentElement.classList.remove('overflow-hidden'); document.activeElement?.blur?.() },
+    get max() { const c = Alpine.store('cart'); return this.p ? (this.mode === 'cart' ? c.qty(this.p.id) + c.left(this.p) : c.left(this.p)) : 0 },
+    get n() { return Math.max(0, Math.min(Math.floor(Number(String(this.value).replace(/\D/g, '')) || 0), this.max)) },
+    get quick() { return [5, 10, 20, 50, 100].filter(v => v <= this.max) },
+    step(d) { this.value = String(Math.max(this.mode === 'cart' ? 0 : 1, Math.min(this.n + d, this.max))) },
+    apply() {
+      const cart = Alpine.store('cart'), p = this.p, n = this.n
+      if (!p) return
+      if (this.mode === 'cart') { if (n > 0) cart.set(p, n); else cart.remove(p.id) }
+      else if (n > 0) { cart.add(p, n); cart.added(p) }
+      this.close()
+    },
+  })
+
+  // «Сообщить о поступлении» (ФТ-К-06): товара нет — оставляем телефон, менеджер перезвонит, когда привезут
+  Alpine.store('restock', {
+    p: null,
+    form: { name: '', phone: '', qty: '' },
+    sent: persisted(RESTOCK_KEY, {}),
+    busy: false,
+    error: null,
+    done: false,
+    has(id) { return Boolean(this.sent[id]) },
+    open(p) {
+      const me = Alpine.store('account').me
+      this.p = p; this.error = null; this.done = false
+      this.form = { name: me?.name ?? this.form.name, phone: me?.phone ?? this.form.phone, qty: '' }
+      document.documentElement.classList.add('overflow-hidden')
+    },
+    close() { this.p = null; document.documentElement.classList.remove('overflow-hidden') },
+    async submit() {
+      this.error = null
+      if (this.form.name.trim().length < 2) { this.error = 'Укажите имя'; return }
+      if (!isPhone(this.form.phone)) { this.error = 'Телефон в формате +7 (7XX) XXX-XX-XX'; return }
+      const qty = Number(this.form.qty) || undefined
+      this.busy = true
+      try {
+        await api.restockRequest({ product_id: this.p.id, name: this.form.name.trim(), phone: formatPhone(this.form.phone), qty })
+        this.sent[this.p.id] = true; save(RESTOCK_KEY, this.sent)
+        this.done = true
+      } catch (e) { this.error = e.message } finally { this.busy = false }
+    },
   })
 
   // Покупатель: вход по телефону и паролю (/api/auth/client/login), профиль — /api/me.
@@ -213,6 +281,7 @@ document.addEventListener('alpine:init', () => {
       try { sessionStorage.removeItem(DATA_KEY) } catch { /* приватный режим */ }
       await this.refresh()
       Alpine.store('shop').load() // персональные цены
+      await Alpine.store('sync').pull({ merge: true }) // то, что набрал до входа, + то, что уже в профиле
     },
     async login(phone, password) {
       await api.clientLogin(formatPhone(phone), password)
@@ -233,13 +302,67 @@ document.addEventListener('alpine:init', () => {
       try { localStorage.removeItem(ME_KEY) } catch { /* приватный режим */ }
     },
     async logout() {
+      await Alpine.store('sync').flush()
       await api.logout()
       this.forget()
+      Alpine.store('sync').signedOut()
       try { sessionStorage.removeItem(DATA_KEY) } catch { /* приватный режим */ }
       Alpine.store('shop').load()
     },
   })
   onUnauthorized(() => Alpine.store('account').forget())
+
+  // Избранное и корзина вошедшего покупателя — одни на телефоне и компьютере (/api/me/favorites, /api/me/cart).
+  // Первый вход на устройстве: своё + серверное (ничего не теряется). Дальше сервер главный: при открытии
+  // страницы и возврате на вкладку берём с сервера, каждое изменение отправляем через полсекунды.
+  Alpine.store('sync', {
+    timers: {},
+    busy: false,
+    signedIn() { return session.get()?.kind === 'client' },
+    queue(kind) {
+      if (!this.signedIn()) return
+      clearTimeout(this.timers[kind])
+      this.timers[kind] = setTimeout(() => this.push(kind), 500)
+    },
+    async push(kind) {
+      delete this.timers[kind]
+      try {
+        if (kind === 'fav') await api.setFavorites(Object.keys(Alpine.store('fav').ids))
+        else await api.setCart(Alpine.store('cart').items)
+      } catch (e) { console.warn('Не сохранили на сервере:', e.message) }
+    },
+    async flush() { await Promise.all(Object.keys(this.timers).map(k => { clearTimeout(this.timers[k]); return this.push(k) })) },
+    async pull({ merge = false } = {}) {
+      if (!this.signedIn() || this.busy || Object.keys(this.timers).length) return
+      this.busy = true
+      try {
+        const id = session.get()?.user?.id
+        merge = merge || persisted(SYNC_KEY, null) !== id
+        const [favs, cart] = await Promise.all([api.favorites(), api.myCart()])
+        const fav = Alpine.store('fav'), basket = Alpine.store('cart')
+        const ids = Object.fromEntries(favs.map(k => [k, true]))
+        const items = { ...cart }
+        if (merge) {
+          Object.keys(fav.ids).forEach(k => (ids[k] = true))
+          Object.entries(basket.items).forEach(([k, q]) => (items[k] = Math.max(items[k] ?? 0, q)))
+        }
+        fav.ids = ids; save(FAV_KEY, ids)
+        basket.items = items; save(CART_KEY, items)
+        if (Alpine.store('shop').ready) basket.reconcile()
+        if (merge) { await Promise.all([api.setFavorites(Object.keys(ids)), api.setCart(basket.items)]); save(SYNC_KEY, id) }
+      } catch (e) {
+        if (e.status !== 401) console.warn('Избранное и корзина не синхронизированы:', e.message)
+      } finally { this.busy = false }
+    },
+    // Вышел — на этом устройстве не оставляем чужие избранное и корзину: они сохранены в профиле
+    signedOut() {
+      Object.values(this.timers).forEach(clearTimeout); this.timers = {}
+      Alpine.store('fav').ids = {}; save(FAV_KEY, {})
+      Alpine.store('cart').items = {}; save(CART_KEY, {})
+      try { localStorage.removeItem(SYNC_KEY) } catch { /* приватный режим */ }
+    },
+  })
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && Alpine.store('sync').pull())
 
   Alpine.store('search', { q: params.get('q') ?? '' })
 
@@ -628,6 +751,7 @@ window.bl = {
 window.Alpine = Alpine
 Alpine.start()
 Alpine.store('shop').load()
+Alpine.store('sync').pull()
 
 // Просмотр страницы — для аналитики владельца (устройство и браузер сервер берёт из User-Agent, IP не хранит)
 const tabId = (() => {

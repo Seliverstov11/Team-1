@@ -103,6 +103,7 @@ const ICONS = {
   picking: 'M9 4h6v3H9zM7 5.5H5V21h14V5.5h-2M8.5 13l2.5 2.5 4.5-5',
   analytics: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
   employees: 'M15 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM5 20c.8-3.4 3.6-5.5 7-5.5s6.2 2.1 7 5.5M19 4.5l1.5 1.5 3-3',
+  profile: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21c1-4 4.5-6 8-6s7 2 8 6',
   more: 'M4.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0M16.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0',
 }
 const homeFor = role => NAV.find(i => i.roles.includes(role))?.href ?? '/crm/stock.html'
@@ -972,7 +973,8 @@ document.addEventListener('alpine:init', () => {
 
   // ================================================================ Склад: остатки, полки, ниже минимума
   Alpine.data('crmStock', () => ({
-    tab: params.get('level') === 'low' ? 'low' : params.get('level') === 'out' ? 'out' : '',
+    tab: ['low', 'out', 'restock'].includes(params.get('level')) ? params.get('level') : '',
+    restock: [],        // заявки «Сообщить о поступлении» (только менеджер и владелец)
     q: '',
     section: '',
     shown: 60,
@@ -990,6 +992,18 @@ document.addEventListener('alpine:init', () => {
         this.shown = 60
       })
       ;['q', 'section'].forEach(k => this.$watch(k, () => (this.shown = 60)))
+      if (this.$store.crm.can('office')) this.loadRestock()
+    },
+    async loadRestock() {
+      try { this.restock = await api.restockList() } catch (e) { console.warn(e) }
+    },
+    get restockArrived() { return this.restock.some(r => milli(r.available) > 0) },
+    async markRestock(r, status) {
+      try {
+        await api.restockUpdate(r.id, status)
+        this.restock = this.restock.filter(x => x.id !== r.id)
+        this.$store.crm.notify(status === 'notified' ? `Отмечено: ${r.name} знает о поступлении` : 'Заявка убрана')
+      } catch (e) { this.$store.crm.notify(e.message) }
     },
     get kpi() {
       const s = this.$store.crm.stock
@@ -1085,9 +1099,17 @@ document.addEventListener('alpine:init', () => {
     error: null,
     deliveryNames: DELIVERY,
 
+    // Компьютер: очередь слева, заказ справа. Телефон: заказ раскрывается под строкой очереди
+    wide: matchMedia('(min-width: 64rem)').matches,
     async init() {
+      matchMedia('(min-width: 64rem)').addEventListener('change', e => (this.wide = e.matches))
       await this.load()
       this.$watch('selected', () => { this.error = null; this.shortFor = null })
+    },
+    choose(id, el) {
+      if (!this.wide && this.selected === id) { this.selected = null; return }
+      this.selected = id
+      if (!this.wide) this.$nextTick(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }))
     },
     async load() {
       try {
