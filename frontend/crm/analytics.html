@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Аналитика — Bakeloom CRM</title>
+</head>
+<body data-page="analytics">
+<!-- @include crm-layout-start.html -->
+
+<!-- Раздел аналитики владельца (ФТ-В-04). Всё считает сервер: GET /api/analytics?period=… -->
+<main id="main" x-data="crmAnalytics" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="crm-title text-balance">Аналитика</h1>
+      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="a ? `Откуда заказы, где теряем клиентов, что популярно · ${periodShort}` : 'Считаем…'"></p>
+    </div>
+    <div class="chip-row flex flex-wrap gap-1.5" role="group" aria-label="Период">
+      <template x-for="[id, label] in periods" :key="id">
+        <button type="button" class="chip" :class="period === id && 'is-active'" :aria-pressed="period === id" @click="period = id" x-text="label"></button>
+      </template>
+    </div>
+  </div>
+
+  <p x-show="error" x-cloak role="alert" class="rounded-card bg-error-soft px-5 py-3 text-[0.8125rem] text-error" x-text="error"></p>
+
+  <!-- Главные цифры -->
+  <section class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" :class="loading && 'opacity-60'">
+    <div class="crm-kpi border-l-4 border-l-brand-dark">
+      <p class="crm-label">Посетители сайта</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="(a?.visitors ?? 0).toLocaleString('ru-RU')"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`уникальных · ${$store.fmt.count(a?.visits ?? 0, 'просмотр', 'просмотра', 'просмотров')} страниц`"></p>
+    </div>
+    <div class="crm-kpi border-l-4 border-l-success">
+      <p class="crm-label">Конверсия сайта</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="conversion === null ? '—' : `${conversion}%`"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="conversion === null ? 'мало посещений для оценки' : 'заказов с сайта на 100 посетителей'"></p>
+    </div>
+    <div class="crm-kpi border-l-4 border-l-brand-gold">
+      <p class="crm-label">Клиенты</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="(a?.new_clients ?? 0) + (a?.repeat_clients ?? 0)"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`новых ${a?.new_clients ?? 0} · повторных ${a?.repeat_clients ?? 0} (${repeatShare}%)`"></p>
+    </div>
+    <a href="/crm/orders.html?status=cancelled" class="crm-kpi border-l-4 border-l-error transition hover:border-brand-gold">
+      <p class="crm-label">Отменено</p>
+      <p class="mt-2 font-heading text-[2rem] font-semibold leading-none" x-text="a?.cancelled.count ?? 0"></p>
+      <p class="mt-2 text-[0.6875rem] text-ink-muted" x-text="`заказов на ${$store.fmt.money($store.fmt.tiyn(a?.cancelled.sum ?? '0'))}`"></p>
+    </a>
+  </section>
+
+  <div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
+    <!-- Откуда приходят заказы -->
+    <section class="crm-card p-4 sm:p-6">
+      <h2 class="crm-h2">Откуда приходят заказы</h2>
+      <p class="mt-1 text-[0.6875rem] text-ink-muted">каналы по сумме заказов, без отменённых</p>
+      <ul class="mt-4 space-y-3 text-[0.8125rem]">
+        <template x-for="r in channels" :key="r.key">
+          <li>
+            <div class="flex items-baseline justify-between gap-3"><span x-text="r.label"></span>
+              <span class="whitespace-nowrap"><span class="font-semibold" x-text="$store.fmt.money(r.sum)"></span><span class="text-ink-muted" x-text="` · ${r.n} (${r.share}%)`"></span></span></div>
+            <span class="mt-1.5 block h-2 rounded-full bg-brand-light"><span class="block h-full rounded-full bg-brand-dark" :style="`width: ${r.pct}%`"></span></span>
+          </li>
+        </template>
+        <li x-show="a && !channels.length" class="py-6 text-center text-ink-muted">Заказов за период нет</li>
+      </ul>
+      <h3 class="mt-6 text-[0.8125rem] font-medium">Города</h3>
+      <ul class="mt-3 space-y-2 text-[0.8125rem]">
+        <template x-for="r in cities" :key="r.key">
+          <li class="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_auto] items-center gap-3">
+            <span class="truncate" x-text="r.label"></span>
+            <span class="h-1.5 rounded-full bg-brand-light"><span class="block h-full rounded-full bg-brand-gold" :style="`width: ${r.pct}%`"></span></span>
+            <span class="whitespace-nowrap text-right text-[0.75rem]" x-text="`${r.n} · ${$store.fmt.money(r.sum)}`"></span>
+          </li>
+        </template>
+      </ul>
+      <h3 class="mt-6 text-[0.8125rem] font-medium">Кто покупает</h3>
+      <ul class="mt-3 space-y-2 text-[0.8125rem]">
+        <template x-for="r in clientTypes" :key="r.key">
+          <li class="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3">
+            <span class="truncate" x-text="r.label"></span>
+            <span class="h-1.5 rounded-full bg-brand-light"><span class="block h-full rounded-full bg-brand-gold" :style="`width: ${r.pct}%`"></span></span>
+            <span class="whitespace-nowrap text-right text-[0.75rem]" x-text="`${r.n} · ${$store.fmt.money(r.sum)}`"></span>
+          </li>
+        </template>
+      </ul>
+    </section>
+
+    <!-- Что популярно -->
+    <section class="crm-card overflow-hidden">
+      <div class="px-4 pt-5 sm:px-6"><h2 class="crm-h2">Популярные товары</h2>
+        <p class="mt-1 text-[0.6875rem] text-ink-muted" x-text="`топ-10 по выручке ${periodShort}`"></p></div>
+      <ol class="mt-3 divide-y divide-line/70">
+        <template x-for="(t, i) in (a?.top_products ?? [])" :key="t.name">
+          <li class="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-[0.8125rem] sm:px-6">
+            <span class="font-heading text-[1.125rem] font-semibold text-brand-gold" x-text="i + 1"></span>
+            <span class="min-w-0"><span class="block truncate" x-text="t.name"></span>
+              <span class="text-[0.6875rem] text-ink-muted" x-text="`продано ${$store.fmt.qty(t.quantity)} · ${$store.fmt.count(t.orders, 'заказ', 'заказа', 'заказов')}`"></span></span>
+            <span class="whitespace-nowrap font-semibold" x-text="$store.fmt.money($store.fmt.tiyn(t.sum))"></span>
+          </li>
+        </template>
+        <li x-show="a && !a.top_products?.length" class="px-6 py-8 text-center text-[0.8125rem] text-ink-muted">Продаж за период нет</li>
+      </ol>
+      <div class="border-t border-line/70 px-4 py-5 sm:px-6">
+        <h3 class="text-[0.8125rem] font-medium">Категории</h3>
+        <ul class="mt-3 space-y-2 text-[0.8125rem]">
+          <template x-for="r in categories" :key="r.key">
+            <li class="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3">
+              <span class="truncate" x-text="r.label"></span>
+              <span class="h-1.5 rounded-full bg-brand-light"><span class="block h-full rounded-full bg-brand-dark" :style="`width: ${r.pct}%`"></span></span>
+              <span class="whitespace-nowrap text-right text-[0.75rem] font-medium" x-text="$store.fmt.money(r.sum)"></span>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Где теряются клиенты -->
+    <section class="crm-card p-4 sm:p-6">
+      <h2 class="crm-h2">Где теряем клиентов</h2>
+      <p class="mt-1 text-[0.6875rem] text-ink-muted">причины отмен — менеджер указывает при отмене заказа</p>
+      <ul class="mt-4 space-y-3 text-[0.8125rem]">
+        <template x-for="r in reasons" :key="r.key">
+          <li>
+            <div class="flex items-baseline justify-between gap-3"><span class="min-w-0 first-letter:uppercase" x-text="r.label"></span>
+              <span class="whitespace-nowrap text-ink-muted" x-text="`${r.n} · ${$store.fmt.money(r.sum)}`"></span></div>
+            <span class="mt-1.5 block h-1.5 rounded-full bg-error-soft"><span class="block h-full rounded-full bg-error" :style="`width: ${r.pct}%`"></span></span>
+          </li>
+        </template>
+        <li x-show="a && !reasons.length" class="py-6 text-center text-ink-muted">Отмен за период нет</li>
+      </ul>
+    </section>
+
+    <!-- Устройства и браузеры -->
+    <section class="crm-card p-4 sm:p-6">
+      <h2 class="crm-h2">С чего заходят на сайт</h2>
+      <p class="mt-1 text-[0.6875rem] text-ink-muted" x-text="`по просмотрам страниц ${periodShort}`"></p>
+      <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <template x-for="[title, list] in [['Устройства', byDevice], ['Браузеры', byBrowser], ['Системы', byOs]]" :key="title">
+          <div>
+            <h3 class="crm-label" x-text="title"></h3>
+            <ul class="mt-2 space-y-2 text-[0.8125rem]">
+              <template x-for="r in list" :key="r.key">
+                <li>
+                  <div class="flex justify-between gap-2"><span class="truncate" x-text="r.label"></span><span class="font-medium" x-text="`${r.share}%`"></span></div>
+                  <span class="mt-1 block h-1.5 rounded-full bg-brand-light"><span class="block h-full rounded-full bg-brand-gold" :style="`width: ${r.share}%`"></span></span>
+                </li>
+              </template>
+              <li x-show="a && !list.length" class="text-ink-muted">нет данных</li>
+            </ul>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Последний вход клиентов -->
+    <section class="crm-card overflow-hidden xl:col-span-2">
+      <div class="px-4 pt-5 sm:px-6"><h2 class="crm-h2">Последний вход клиентов</h2>
+        <p class="mt-1 text-[0.6875rem] text-ink-muted">покупатели с учётной записью на сайте, 20 последних</p></div>
+      <ul class="mt-3 grid grid-cols-1 divide-y divide-line/70 sm:grid-cols-2 sm:divide-y-0">
+        <template x-for="c in (a?.last_logins ?? [])" :key="c.id">
+          <li class="flex items-center justify-between gap-3 px-4 py-2.5 text-[0.8125rem] sm:border-t sm:border-line/70 sm:px-6">
+            <a :href="`/crm/clients.html?id=${c.id}`" class="min-w-0 truncate hover:text-brand-gold" x-text="c.name"></a>
+            <span class="whitespace-nowrap text-[0.75rem] text-ink-muted" :title="$store.fmt.dateTime(c.last_login_at)" x-text="ago(c.last_login_at)"></span>
+          </li>
+        </template>
+        <li x-show="a && !a.last_logins?.length" class="px-6 py-8 text-center text-[0.8125rem] text-ink-muted">Покупатели ещё не входили на сайт</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>

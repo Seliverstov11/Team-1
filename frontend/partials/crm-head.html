@@ -6,8 +6,11 @@
 <link rel="icon" href="/img/logo.svg" type="image/svg+xml" />
 <!-- Устанавливаемое приложение (PWA): значок на рабочем столе, своё окно -->
 <link rel="manifest" href="/crm/manifest.webmanifest" />
-<link rel="apple-touch-icon" href="/crm/icons/apple-touch-icon.png" />
+<!-- iPhone/iPad: значок 180×180 и запуск без адресной строки (Safari до 17 не читает это из manifest) -->
+<link rel="apple-touch-icon" sizes="180x180" href="/crm/icons/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-title" content="BAKELOOM CRM" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="stylesheet" href="/src/input.css" />
 <script type="module" src="/src/crm.js" blocking="render"></script>

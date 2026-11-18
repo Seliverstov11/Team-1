@@ -1,14 +1,15 @@
     <footer class="mt-auto rounded-card bg-surface px-5 py-6 sm:px-8 sm:py-7">
       <div class="grid grid-cols-1 items-start gap-7 sm:grid-cols-2 sm:gap-10 xl:grid-cols-[1fr_1fr_1fr_auto]">
-        <div>
+        <div x-data>
           <p class="eyebrow">Контакты</p>
-          <p class="mt-3 font-heading text-[1.375rem] font-medium">+7 (700) 000-00-00</p>
-          <p class="mt-1 text-[0.8125rem] font-light text-ink-muted">info@example.kz</p>
+          <a :href="$store.contacts.tel" class="mt-3 block font-heading text-[1.375rem] font-medium hover:text-brand-gold" :class="!$store.contacts.tel && 'pointer-events-none'" x-text="$store.contacts.phoneText"></a>
+          <a x-show="$store.contacts.wa" x-cloak :href="$store.contacts.wa" target="_blank" rel="noopener" class="mt-1 inline-flex items-center gap-1.5 text-[0.8125rem] text-success hover:underline">Написать в WhatsApp</a>
+          <p x-show="$store.contacts.email" x-cloak class="mt-1 text-[0.8125rem] font-light text-ink-muted" x-text="$store.contacts.email"></p>
         </div>
-        <div>
-          <p class="eyebrow">Режим работы</p>
-          <p class="mt-3 text-sm">Ежедневно 9:00 — 21:00</p>
-          <p class="mt-1 text-[0.8125rem] font-light text-ink-muted">Адрес уточняется</p>
+        <div x-data>
+          <p class="eyebrow">Адрес и режим работы</p>
+          <a :href="$store.contacts.map" target="_blank" rel="noopener" class="mt-3 block text-sm hover:text-brand-gold" x-text="$store.contacts.fullAddress"></a>
+          <p class="mt-1 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.contacts.hours} · самовывоз бесплатно`"></p>
         </div>
         <nav aria-label="Разделы">
           <p class="eyebrow">Разделы</p>
@@ -19,19 +20,28 @@
             <li><a href="/contacts.html" class="hover:text-brand-gold">Контакты</a></li>
           </ul>
         </nav>
-        <div class="max-w-[18rem] self-center xl:max-w-[14rem] xl:text-right">
-          <span class="demo-tag">Демо-контакты</span>
-          <p class="mt-2 text-[0.6875rem] font-light leading-relaxed text-ink-muted">Телефон, почта, адрес и часы работы — заглушки до подтверждения заказчиком</p>
+        <div x-data x-show="!$store.contacts.complete" class="max-w-[18rem] self-center xl:max-w-[14rem] xl:text-right">
+          <span class="demo-tag">Уточняется</span>
+          <p class="mt-2 text-[0.6875rem] font-light leading-relaxed text-ink-muted">Телефон и часы работы — уточняем у магазина</p>
         </div>
       </div>
       <div class="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-[0.6875rem] font-light text-ink-muted">
-        <p>© 2026 Bakeloom</p>
+        <p>© 2026 BAKELOOM</p>
         <a href="/crm/" class="hover:text-brand-gold">Вход для сотрудников — CRM →</a>
       </div>
     </footer>
     <!-- место под нижнюю панель, чтобы она не закрывала подвал -->
     <div class="h-[calc(3.5rem+env(safe-area-inset-bottom))] shrink-0 lg:hidden" aria-hidden="true"></div>
   </div>
+</div>
+
+<!-- Добавлено в корзину: над нижней панелью на телефоне, в углу на компьютере -->
+<div x-data x-show="$store.cart.toast" x-cloak x-transition.opacity role="status" aria-live="polite"
+     class="fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-3 rounded-control bg-brand-dark px-4 py-3 text-brand-light shadow-lift lg:inset-x-auto lg:bottom-6 lg:right-6">
+  <svg class="size-5 shrink-0 text-brand-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+  <p class="min-w-0 flex-1 text-[0.8125rem] leading-snug"><span class="block truncate" x-text="$store.cart.toast?.name"></span>
+    <span class="text-[0.6875rem] text-on-dark-muted" x-text="`В корзине ${$store.cart.toast?.qty} ${$store.cart.toast?.unit}`"></span></p>
+  <a href="/cart.html" class="caps shrink-0 rounded-control bg-brand-gold px-3 py-2 text-[0.625rem] tracking-[0.14em] text-surface hover:bg-brand-gold-hover">В корзину →</a>
 </div>
 
 <!-- ===================== Нижняя панель (< 1024px, #47) =====================

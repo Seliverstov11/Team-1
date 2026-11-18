@@ -13,6 +13,7 @@ import {
   ACTIVE, CHANNELS, DELIVERY, EDITABLE, FLOW, NEXT, PAYMENT, PAYMENT_METHODS, STATUSES, STATUS_HINT, STATUS_ORDER,
   paymentKey,
 } from './orders.js'
+import { passwordProblems } from './password.js'
 import { fmt, formatPhone, isPhone, persisted, phoneDigits, save } from './util.js'
 
 const params = new URLSearchParams(location.search)
@@ -38,7 +39,32 @@ window.addEventListener('appinstalled', () => {
   installEvent = null
   if (window.Alpine) Object.assign(Alpine.store('pwa'), { available: false, installed: true })
 })
+// Телефон: CRM-таблицы показываются карточками — каждой ячейке нужна подпись из заголовка столбца.
+// Строки рисует Alpine (x-for), поэтому подписываем при каждом изменении DOM
+function labelTables() {
+  document.querySelectorAll('table.crm-table').forEach(t => {
+    const heads = [...(t.tHead?.rows[0]?.cells ?? [])].map(th => th.textContent.trim())
+    t.querySelectorAll('tbody tr').forEach(tr => {
+      let col = 0
+      for (const td of tr.cells) {
+        const label = td.colSpan > 1 ? '' : heads[col] ?? ''
+        if (td.dataset.label !== label) td.dataset.label = label
+        col += td.colSpan
+      }
+    })
+  })
+}
+let labelQueued = false
+new MutationObserver(() => {
+  if (labelQueued) return
+  labelQueued = true
+  requestAnimationFrame(() => { labelQueued = false; labelTables() })
+}).observe(document.documentElement, { childList: true, subtree: true })
+
 const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
+// iPhone и iPad: Safari не показывает окно установки — ставится через «Поделиться → На экран „Домой“».
+// iPadOS представляется Mac-ом, поэтому ещё проверяем сенсорный экран
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
 // Роли сервера: admin — владелец, manager — менеджер, warehouse — кладовщик
 const ROLES = {
@@ -47,15 +73,38 @@ const ROLES = {
   warehouse: { title: 'Склад', app: 'CRM · склад' },
 }
 const OFFICE = ['admin', 'manager']
+const CLIENT_TYPES = { home_baker: 'Домашний кондитер', bakery: 'Кондитерская', cafe: 'Кафе', shop: 'Магазин', other: 'Другое' }
+const PERIODS = [['today', 'Сегодня'], ['week', 'Неделя'], ['month', 'Месяц'], ['all', 'Всё время']]
+const PERIOD_SHORT = { today: 'сегодня', week: 'за неделю', month: 'за месяц', all: 'за всё время' }
 
 const NAV = [
   { group: 'Продажи', page: 'home', href: '/crm/', label: 'Сводка', icon: 'home', roles: OFFICE },
   { group: 'Продажи', page: 'orders', href: '/crm/orders.html', label: 'Заказы', icon: 'orders', badge: 'new', roles: OFFICE },
   { group: 'Продажи', page: 'clients', href: '/crm/clients.html', label: 'Клиенты', icon: 'clients', roles: OFFICE },
-  { group: 'Склад', page: 'stock', href: '/crm/stock.html', label: 'Остатки и полки', icon: 'stock', badge: 'low', roles: ['admin', 'manager', 'warehouse'] },
-  { group: 'Склад', page: 'picking', href: '/crm/picking.html', label: 'Сборка и выдача', icon: 'picking', badge: 'queue', roles: ['admin', 'warehouse'] },
-  { group: 'Магазин', page: 'catalog', href: '/crm/catalog.html', label: 'Каталог и цены', icon: 'catalog', roles: ['admin'] },
+  { group: 'Склад', page: 'stock', href: '/crm/stock.html', label: 'Остатки и полки', short: 'Остатки', icon: 'stock', badge: 'low', roles: ['admin', 'manager', 'warehouse'] },
+  { group: 'Склад', page: 'picking', href: '/crm/picking.html', label: 'Сборка и выдача', short: 'Сборка', icon: 'picking', badge: 'queue', roles: ['admin', 'warehouse'] },
+  { group: 'Магазин', page: 'catalog', href: '/crm/catalog.html', label: 'Каталог и цены', short: 'Каталог', icon: 'catalog', roles: ['admin'] },
+  { group: 'Магазин', page: 'analytics', href: '/crm/analytics.html', label: 'Аналитика', icon: 'analytics', roles: ['admin'] },
+  { group: 'Магазин', page: 'employees', href: '/crm/employees.html', label: 'Сотрудники', icon: 'employees', roles: ['admin'] },
 ]
+// Нижняя панель на телефоне: первые 4 пункта роли, остальное — во «Ещё»
+const TABS = {
+  admin: ['home', 'orders', 'picking', 'analytics'],
+  manager: ['home', 'orders', 'clients', 'stock'],
+  warehouse: ['picking', 'stock'],
+}
+// Иконки разделов (24×24, одна линия) — общие для бокового меню и нижней панели
+const ICONS = {
+  home: 'M4 11 12 4l8 7v9h-5v-6H9v6H4z',
+  orders: 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3',
+  clients: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21c.8-3.6 3.6-6 7-6s6.2 2.4 7 6M16 3.5a4 4 0 0 1 0 7M18.5 15c1.8.9 3 2.9 3.5 6',
+  stock: 'M12 3 4 7v10l8 4 8-4V7zM4 7l8 4 8-4M12 11v10',
+  catalog: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 16.5h7M16.5 13v7',
+  picking: 'M9 4h6v3H9zM7 5.5H5V21h14V5.5h-2M8.5 13l2.5 2.5 4.5-5',
+  analytics: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  employees: 'M15 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM5 20c.8-3.4 3.6-5.5 7-5.5s6.2 2.1 7 5.5M19 4.5l1.5 1.5 3-3',
+  more: 'M4.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0M16.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0',
+}
 const homeFor = role => NAV.find(i => i.roles.includes(role))?.href ?? '/crm/stock.html'
 
 const toLogin = () => {
@@ -77,6 +126,16 @@ const moneyInput = v => {
   return /^\d+(\.\d{1,2})?$/.test(s) ? s : null
 }
 
+// Пароль, который проходит правила входа (8+ символов, строчная и заглавная, цифра); без похожих 0/O, 1/l
+function genPassword() {
+  const rnd = n => crypto.getRandomValues(new Uint32Array(1))[0] % n
+  const parts = ['abcdefghkmnpqrstuvwxyz', 'ABCDEFGHKMNPQRSTUVWXYZ', '23456789']
+  const all = parts.join('')
+  const chars = [...parts.map(p => p[rnd(p.length)]), ...Array.from({ length: 7 }, () => all[rnd(all.length)])]
+  for (let i = chars.length - 1; i > 0; i--) { const j = rnd(i + 1); [chars[i], chars[j]] = [chars[j], chars[i]] }
+  return chars.join('')
+}
+
 // Остаток к закупке: сколько не хватает до минимума
 const shortage = s => Math.max(0, milli(s.min_stock_qty) - milli(s.available_qty))
 // К оплате считает сервер (due). Кладовщику поля нет — тогда и долга не видно
@@ -91,9 +150,11 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('pwa', {
     available: Boolean(installEvent),
     installed: standalone(),
-    get canInstall() { return this.available && !this.installed },
+    ios: isIOS(),
+    iosHint: false,
+    get canInstall() { return (this.available || this.ios) && !this.installed },
     async install() {
-      if (!installEvent) return
+      if (!installEvent) { if (this.ios) this.iosHint = true; return }
       installEvent.prompt()
       const { outcome } = await installEvent.userChoice
       if (outcome === 'accepted') { this.installed = true; installEvent = null }
@@ -187,6 +248,22 @@ document.addEventListener('alpine:init', () => {
     employee(id) { return this.employees.find(e => e.id === id) },
     employeeName(id) { return id ? this.employee(id)?.name ?? id : 'не назначен' },
     get assignees() { return this.employees.filter(e => e.is_active !== false && OFFICE.includes(e.role)) },
+
+    icon(name) { return ICONS[name] ?? '' },
+    isActive(i) { return this.page === i.page || (this.page === 'order' && i.page === 'orders') },
+    // Нижняя панель (телефон): до 4 разделов роли + «Ещё», если остались
+    get tabs() {
+      const ids = TABS[this.role] ?? []
+      return ids.map(id => NAV.find(i => i.page === id)).filter(i => i && i.roles.includes(this.role))
+    },
+    get moreItems() {
+      const tabs = this.tabs.map(i => i.page)
+      return NAV.filter(i => i.roles.includes(this.role) && !tabs.includes(i.page))
+    },
+    get moreActive() { return this.moreItems.some(i => this.isActive(i)) },
+    sheet: false,
+    openSheet() { this.sheet = true; document.documentElement.classList.add('overflow-hidden') },
+    closeSheet() { if (!this.sheet) return; this.sheet = false; document.documentElement.classList.remove('overflow-hidden') },
 
     get nav() {
       const items = NAV.filter(i => i.roles.includes(this.role))
@@ -282,7 +359,9 @@ document.addEventListener('alpine:init', () => {
     d: null,
     loading: false,
     error: null,
-    periods: [['today', 'Сегодня'], ['week', 'Неделя'], ['month', 'Месяц'], ['all', 'Всё время']],
+    periods: PERIODS,
+    get periodLabel() { return { today: 'Сегодня', week: 'За неделю', month: 'За месяц', all: 'За всё время' }[this.period] },
+    get periodShort() { return PERIOD_SHORT[this.period] },
     init() {
       this.load()
       this.$watch('period', () => this.load())
@@ -307,6 +386,113 @@ document.addEventListener('alpine:init', () => {
     },
     get purchase() {
       return this.$store.crm.stock.filter(s => s.low_stock).sort((a, b) => shortage(b) - shortage(a)).slice(0, 8)
+    },
+  }))
+
+  // ================================================================ Аналитика (владелец) — GET /api/analytics (ФТ-В-04)
+  // Откуда приходят заказы, где теряются клиенты, что популярно, с каких устройств заходят, последний вход
+  Alpine.data('crmAnalytics', () => ({
+    period: params.get('period') ?? 'month',
+    a: null,
+    loading: false,
+    error: null,
+    periods: PERIODS,
+    devices: { mobile: 'Телефон', tablet: 'Планшет', desktop: 'Компьютер' },
+    init() {
+      this.load()
+      this.$watch('period', () => { this.load(); history.replaceState(null, '', `?period=${this.period}`) })
+    },
+    async load() {
+      this.loading = true
+      try { this.a = await api.analytics(this.period); this.error = null } catch (e) { this.error = e.message } finally { this.loading = false }
+    },
+    get periodShort() { return PERIOD_SHORT[this.period] },
+    // Полоски: доля от самого большого значения; by — count (штук) или sum (деньги)
+    bars(list, names = {}, by = 'count') {
+      const rows = (list ?? []).filter(x => x.count)
+      const val = x => (by === 'sum' ? tiyn(x.sum) : x.count)
+      const max = Math.max(1, ...rows.map(val))
+      const total = rows.reduce((n, x) => n + x.count, 0) || 1
+      return rows.map(x => ({
+        key: x.key ?? '—', label: names[x.key] ?? (x.key || 'не указан'), n: x.count, sum: tiyn(x.sum),
+        pct: Math.round((val(x) / max) * 100), share: Math.round((x.count / total) * 100),
+      }))
+    },
+    get channels() { return this.bars(this.a?.orders_by_channel, CHANNELS, 'sum') },
+    get cities() { return this.bars(this.a?.orders_by_city, {}, 'sum').slice(0, 8) },
+    get clientTypes() { return this.bars(this.a?.orders_by_client_type, CLIENT_TYPES, 'sum') },
+    get categories() { return this.bars(this.a?.top_categories, {}, 'sum') },
+    get reasons() { return this.bars(this.a?.cancel_reasons) },
+    get byDevice() { return this.bars(this.a?.by_device, this.devices) },
+    get byBrowser() { return this.bars(this.a?.by_browser).slice(0, 6) },
+    get byOs() { return this.bars(this.a?.by_os).slice(0, 6) },
+    // Мало посещений — процент ничего не значит (а на демо-данных заказов с сайта больше, чем визитов)
+    get conversion() {
+      if ((this.a?.visitors ?? 0) < 10) return null
+      return Math.min(100, this.a.site_conversion ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+    },
+    get repeatShare() {
+      const n = (this.a?.new_clients ?? 0) + (this.a?.repeat_clients ?? 0)
+      return n ? Math.round(((this.a?.repeat_clients ?? 0) / n) * 100) : 0
+    },
+    ago(iso) {
+      const min = Math.round((Date.now() - new Date(iso)) / 60000)
+      if (min < 60) return min <= 1 ? 'только что' : `${min} мин назад`
+      const h = Math.round(min / 60)
+      if (h < 24) return `${h} ч назад`
+      const d = Math.round(h / 24)
+      return d === 1 ? 'вчера' : `${this.$store.fmt.count(d, 'день', 'дня', 'дней')} назад`
+    },
+  }))
+
+  // ================================================================ Сотрудники (владелец) — /api/employees (ФТ-Р-01, ФТ-Р-04)
+  // Личный вход у каждого; роль решает, что видно. Пароль сотрудника хранится только хешем — сменить можно, увидеть нельзя
+  Alpine.data('crmEmployees', () => ({
+    edit: null,
+    saving: false,
+    formError: null,
+    showPw: false,
+    roles: Object.entries(ROLES).map(([id, r]) => [id, r.title]),
+    access: {
+      admin: 'Всё: заказы, оплаты, клиенты, склад, каталог и цены, аналитика, сотрудники',
+      manager: 'Заказы, оплаты, клиенты, остатки — без каталога, цен и сотрудников',
+      warehouse: 'Остатки, приход, сборка и выдача — без оплат и цен',
+    },
+    get list() {
+      const order = { admin: 0, manager: 1, warehouse: 2 }
+      return [...this.$store.crm.employees].sort((a, b) => Number(b.is_active) - Number(a.is_active) || order[a.role] - order[b.role] || a.name.localeCompare(b.name, 'ru'))
+    },
+    open(e) {
+      this.formError = null
+      this.showPw = !e
+      this.edit = e
+        ? { id: e.id, name: e.name, login: e.login ?? '', role: e.role, phone: e.phone ?? '', is_active: e.is_active, password: '' }
+        : { id: null, name: '', login: '', role: 'manager', phone: '', is_active: true, password: this.suggest() }
+    },
+    suggest: () => genPassword(),
+    get pwProblems() { return this.edit?.password ? passwordProblems(this.edit.password) : [] },
+    async save() {
+      const e = this.edit
+      this.formError = null
+      if (e.name.trim().length < 2) { this.formError = 'Укажите имя'; return }
+      if (!/^[a-z0-9_.]{3,}$/i.test(e.login.trim())) { this.formError = 'Логин — латиница, цифры, точка или _, от 3 символов'; return }
+      if (!e.id && !e.password) { this.formError = 'Задайте пароль для первого входа'; return }
+      if (e.password && this.pwProblems.length) { this.formError = `Пароль: не хватает — ${this.pwProblems.join(', ')}`; return }
+      const body = { name: e.name.trim(), login: e.login.trim().toLowerCase(), role: e.role, phone: e.phone.trim() || null }
+      if (e.password) body.password = e.password
+      if (e.id) body.is_active = e.is_active
+      this.saving = true
+      try {
+        const saved = e.id ? await api.updateEmployee(e.id, body) : await api.createEmployee(body)
+        const list = this.$store.crm.employees
+        const i = list.findIndex(x => x.id === saved.id)
+        if (i >= 0) list.splice(i, 1, saved); else list.push(saved)
+        this.$store.crm.notify(e.id ? `Сохранено: ${saved.name}` : `Добавлен сотрудник ${saved.name}. Передайте ему логин и пароль`)
+        this.edit = null
+      } catch (err) { this.formError = err.message } finally { this.saving = false }
+    },
+    copy(text) {
+      navigator.clipboard?.writeText(text).then(() => this.$store.crm.notify('Скопировано'), () => {})
     },
   }))
 
@@ -670,14 +856,106 @@ document.addEventListener('alpine:init', () => {
     list: [],
     loading: true,
     error: null,
-    types: { home_baker: 'Домашний кондитер', bakery: 'Кондитерская', cafe: 'Кафе', shop: 'Магазин', other: 'Другое' },
+    types: CLIENT_TYPES,
+    // Карточка клиента: данные, вход на сайт, персональные цены (ФТ-Ц-09, только владелец)
+    card: null,
+    form: null,
+    prices: [],
+    pricesLoading: false,
+    pw: '',
+    priceQ: '',
+    newPrice: { product_id: '', price: '' },
+    saving: false,
+    formError: null,
     async init() {
       await this.load()
       this.$watch('debtors', () => this.load())
+      if (params.get('id')) this.openCard({ id: params.get('id') })
+      if (params.get('new') === '1') this.openNew()
     },
     async load() {
       this.loading = true
       try { this.list = await api.clients({ debtors: this.debtors || undefined }); this.error = null } catch (e) { this.error = e.message } finally { this.loading = false }
+    },
+    blank() { return { id: null, name: '', phone: '', city: '', client_type: 'home_baker', note: '' } },
+    openNew() { this.formError = null; this.card = { id: null, orders: [], top_products: [] }; this.form = this.blank(); this.prices = [] },
+    async openCard(c) {
+      this.formError = null; this.pw = ''; this.priceQ = ''; this.newPrice = { product_id: '', price: '' }
+      this.card = { ...c, loading: true, orders: [], top_products: [] }
+      this.form = { id: c.id, name: c.name ?? '', phone: c.phone ?? '', city: c.city ?? '', client_type: c.client_type ?? 'other', note: c.note ?? '' }
+      try {
+        const full = await api.client(c.id)
+        this.card = full
+        this.form = { id: full.id, name: full.name, phone: full.phone ?? '', city: full.city ?? '', client_type: full.client_type, note: full.note ?? '' }
+      } catch (e) { this.formError = e.message; this.card.loading = false }
+      if (this.$store.crm.can('owner')) this.loadPrices()
+    },
+    close() { this.card = null; this.form = null; if (params.get('id') || params.get('new')) history.replaceState(null, '', location.pathname) },
+    async loadPrices() {
+      this.pricesLoading = true
+      try { this.prices = await api.clientPrices(this.form.id) } catch (e) { this.formError = e.message } finally { this.pricesLoading = false }
+    },
+    async saveClient() {
+      const f = this.form
+      this.formError = null
+      if (f.name.trim().length < 2) { this.formError = 'Укажите имя или название'; return }
+      if (f.phone.trim() && !isPhone(f.phone)) { this.formError = 'Телефон в формате +7 (7XX) XXX-XX-XX'; return }
+      const body = { name: f.name.trim(), phone: f.phone.trim() || null, city: f.city.trim() || null, client_type: f.client_type, note: f.note.trim() || null }
+      this.saving = true
+      try {
+        const saved = f.id ? await api.updateClient(f.id, body) : await api.createClient(body)
+        const i = this.list.findIndex(x => x.id === saved.id)
+        if (i >= 0) this.list.splice(i, 1, { ...this.list[i], ...saved }); else this.list.unshift(saved)
+        this.$store.crm.notify(f.id ? 'Клиент сохранён' : `Клиент ${saved.name} добавлен`)
+        if (!f.id) { this.openCard(saved); return }
+        this.card = { ...this.card, ...saved }
+      } catch (e) { this.formError = e.message } finally { this.saving = false }
+    },
+    async setPassword() {
+      this.formError = null
+      if (!this.card.phone) { this.formError = 'Для входа на сайт у клиента должен быть телефон'; return }
+      const probs = passwordProblems(this.pw)
+      if (probs.length) { this.formError = `Пароль: не хватает — ${probs.join(', ')}`; return }
+      this.saving = true
+      try {
+        const saved = await api.setClientPassword(this.card.id, this.pw)
+        this.card = { ...this.card, ...saved }
+        const i = this.list.findIndex(x => x.id === saved.id)
+        if (i >= 0) this.list.splice(i, 1, { ...this.list[i], ...saved })
+        this.$store.crm.notify(`Вход на сайт: телефон ${this.card.phone} и новый пароль`)
+        this.pw = ''
+      } catch (e) { this.formError = e.message } finally { this.saving = false }
+    },
+    suggestPw() { this.pw = genPassword() },
+    // Товары для персональной цены: поиск по названию и артикулу, кроме уже настроенных
+    get priceOptions() {
+      const q = this.priceQ.trim().toLowerCase()
+      if (q.length < 2) return []
+      const taken = new Set(this.prices.map(p => p.product_id))
+      return this.$store.crm.products
+        .filter(p => !p.is_archived && !taken.has(p.id) && `${p.name} ${p.variant_name ?? ''} ${p.sku ?? ''}`.toLowerCase().includes(q))
+        .slice(0, 8)
+    },
+    pickPrice(p) { this.newPrice = { product_id: p.id, price: tiynToString(tiyn(p.price)).replace('.00', '') }; this.priceQ = this.$store.crm.productName(p) },
+    async addPrice() {
+      this.formError = null
+      const price = moneyInput(this.newPrice.price)
+      if (!this.newPrice.product_id) { this.formError = 'Выберите товар из списка'; return }
+      if (price === null) { this.formError = 'Цена — число, например 1650'; return }
+      try {
+        this.prices = await api.setClientPrice(this.form.id, this.newPrice.product_id, price)
+        this.newPrice = { product_id: '', price: '' }; this.priceQ = ''
+        this.$store.crm.notify('Персональная цена сохранена')
+      } catch (e) { this.formError = e.message }
+    },
+    async updatePrice(row, value) {
+      const price = moneyInput(value)
+      if (price === null) { this.formError = 'Цена — число, например 1650'; return }
+      try { this.prices = await api.setClientPrice(this.form.id, row.product_id, price); this.$store.crm.notify('Цена обновлена') } catch (e) { this.formError = e.message }
+    },
+    tiynToString: v => tiynToString(tiyn(v)).replace(/\.00$/, ''),
+    async removePrice(row) {
+      try { await api.deleteClientPrice(this.form.id, row.product_id); this.prices = this.prices.filter(p => p.product_id !== row.product_id) } catch (e) { this.formError = e.message }
     },
     get rows() {
       const q = this.q.trim().toLowerCase()
@@ -894,6 +1172,43 @@ document.addEventListener('alpine:init', () => {
     },
     get page() { return this.rows.slice(0, this.shown) },
     groups() { return [...new Map(this.list.filter(p => p.group_id).map(p => [p.group_id, p.name])).entries()] },
+
+    // ---------------- Категории (ФТ-К-02/03): добавить, переименовать, удалить пустую.
+    // Раздел сайта для категории задан в catalog.js (GROUPS); новая попадает в «Другое», пока её туда не добавят
+    cats: false,
+    catForm: { name: '' },
+    catError: null,
+    get catTree() {
+      const count = c => c.products_count ?? this.list.filter(p => p.category_id === c.id && !p.is_archived).length
+      return buildSections(this.$store.crm.categories).map(sec => ({ ...sec, items: sec.items.map(c => ({ ...c, n: count(c) })) }))
+    },
+    async reloadCats() {
+      const list = await api.categories()
+      this.$store.crm.categories = list
+      this.$store.crm.sections = buildSections(list)
+    },
+    async addCat() {
+      this.catError = null
+      const name = this.catForm.name.trim()
+      if (name.length < 2) { this.catError = 'Название — от 2 символов'; return }
+      try {
+        await api.createCategory({ name })
+        await this.reloadCats()
+        this.catForm = { name: '' }
+        this.$store.crm.notify(`Категория «${name}» добавлена`)
+      } catch (e) { this.catError = e.message }
+    },
+    async renameCat(c, name) {
+      this.catError = null
+      name = name.trim()
+      if (!name || name === c.name) return
+      try { await api.updateCategory(c.id, { name }); await this.reloadCats(); this.$store.crm.notify('Категория переименована') } catch (e) { this.catError = e.message }
+    },
+    async deleteCat(c) {
+      this.catError = null
+      if (c.n) { this.catError = `В «${c.name}» есть товары — сначала перенесите их в другую категорию`; return }
+      try { await api.deleteCategory(c.id); await this.reloadCats(); this.$store.crm.notify(`Категория «${c.name}» удалена`) } catch (e) { this.catError = e.message }
+    },
 
     open(p) {
       this.formError = null

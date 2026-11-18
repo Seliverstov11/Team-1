@@ -1,5 +1,5 @@
 <!-- Одна карточка — одна группа фасовок (group_id). Переключатель меняет цену, остаток и артикул -->
-<article x-data="productCard(card)" class="flex flex-col rounded-card border border-transparent bg-surface p-2.5 transition hover:border-brand-gold-light hover:shadow-lift">
+<article x-data="productCard(card)" class="flex flex-col rounded-card border border-line bg-surface p-2.5 shadow-[0_1px_3px_rgb(53_59_38/0.08)] transition hover:border-brand-gold-light hover:shadow-lift">
   <div class="relative aspect-[227/200] overflow-hidden rounded-xl">
     <a :href="`/product.html?id=${p.id}`" class="absolute inset-0" :aria-label="p.name"><!-- @include product-image.html --></a>
     <div class="absolute right-2.5 top-2.5"><!-- @include fav-button.html --></div>

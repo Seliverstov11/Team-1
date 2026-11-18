@@ -8,6 +8,7 @@ import { formatQty, formatTiyn, milli, qtyToString, tiyn, tiynToString } from '.
 import { DELIVERY, FLOW, PAYMENT, STATUSES, paymentKey } from './orders.js'
 import { fmt, formatPhone, isPhone, persisted, save } from './util.js'
 import { passwordProblems, passwordStrength } from './password.js'
+import { orderNextStep, shopInfo } from './shop-info.js'
 
 const params = new URLSearchParams(location.search)
 
@@ -65,6 +66,8 @@ document.addEventListener('alpine:init', () => {
   })
 
   Alpine.store('fmt', { ...fmt, phone: formatPhone, money: formatTiyn, qty: formatQty, tiyn })
+  // Контакты магазина и «что сейчас с заказом» (src/shop-info.js)
+  Alpine.store('contacts', Object.assign(shopInfo, { next: orderNextStep }))
 
   matchMedia('(min-width: 64rem)').addEventListener('change', e => e.matches && Alpine.store('ui').closeDrawer())
 
@@ -136,6 +139,13 @@ document.addEventListener('alpine:init', () => {
       this.persist()
     },
     remove(id) { delete this.items[id]; this.persist() },
+    // Плашка «Добавлено в корзину» со ссылкой — чтобы из каталога можно было сразу перейти к оформлению
+    toast: null,
+    added(p) {
+      this.toast = { name: p.name, qty: this.qty(p.id), unit: p.unit }
+      clearTimeout(this._t)
+      this._t = setTimeout(() => (this.toast = null), 3500)
+    },
     clear() { this.items = {}; this.adjusted = []; this.persist() },
     // Остатки изменились — корзина не должна обещать больше, чем есть
     reconcile() {
@@ -303,6 +313,8 @@ document.addEventListener('alpine:init', () => {
         (!q || c.search.includes(q)))
       if (this.sort === 'price-asc') list.sort((a, b) => a.minPrice - b.minPrice)
       if (this.sort === 'price-desc') list.sort((a, b) => b.minPrice - a.minPrice)
+      // То, что можно купить, — выше; «нет в наличии» в конце (сортировка устойчивая: порядок внутри сохраняется)
+      list.sort((a, b) => Number(b.inStock) - Number(a.inStock))
       return list
     },
     get page() { return this.list.slice(0, this.shown) },
@@ -344,7 +356,7 @@ document.addEventListener('alpine:init', () => {
   // Вход и регистрация по телефону и паролю. Гость отслеживает заказ по номеру и телефону.
   Alpine.data('accountPage', () => ({
     tab: params.get('tab') ?? 'orders',
-    mode: params.get('mode') === 'register' ? 'register' : params.get('order_no') ? 'track' : 'login',
+    mode: ['register', 'track'].includes(params.get('mode')) ? params.get('mode') : params.get('order_no') ? 'track' : 'login',
     login: { phone: '', password: '' },
     reg: { name: '', phone: '', city: '', password: '', confirm: '' },
     showPassword: false,

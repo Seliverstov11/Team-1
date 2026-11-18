@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- @include crm-head.html -->
+  <title>Сотрудники — Bakeloom CRM</title>
+</head>
+<body data-page="employees">
+<!-- @include crm-layout-start.html -->
+
+<!-- Сотрудники (владелец): личные входы и роли (ФТ-Р-01, ФТ-Р-04). Права проверяет сервер -->
+<main id="main" x-data="crmEmployees" x-show="$store.crm.ready && !$store.crm.error" x-cloak class="vt-content flex flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="crm-title text-balance">Сотрудники</h1>
+      <p class="mt-2 text-[0.8125rem] font-light text-ink-muted" x-text="`${$store.fmt.count(list.filter(e => e.is_active).length, 'активный', 'активных', 'активных')} · у каждого свой логин, роль решает, что видно в CRM`"></p>
+    </div>
+    <button type="button" class="btn-primary" @click="open(null)">+ Сотрудник</button>
+  </div>
+
+  <section class="crm-card overflow-hidden">
+    <div class="overflow-x-auto"><table class="crm-table">
+      <thead><tr><th>Сотрудник</th><th>Логин</th><th>Роль</th><th>Телефон</th><th>Последний вход</th><th>Доступ</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="e in list" :key="e.id">
+          <tr :class="!e.is_active && 'opacity-55'">
+            <td>
+              <span class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-full bg-brand-gold-soft text-[0.75rem] font-semibold" x-text="$store.fmt.initials(e.name)"></span>
+                <span class="min-w-0"><span class="block font-medium" x-text="e.name"></span>
+                  <span x-show="e.id === $store.crm.session?.user?.id" class="text-[0.625rem] text-brand-gold">это вы</span></span>
+              </span>
+            </td>
+            <td class="font-mono text-[0.75rem]" x-text="e.login ?? '—'"></td>
+            <td class="whitespace-nowrap" x-text="roles.find(([id]) => id === e.role)?.[1] ?? e.role"></td>
+            <td class="whitespace-nowrap text-ink-muted" x-text="e.phone ?? '—'"></td>
+            <td class="whitespace-nowrap text-[0.75rem] text-ink-muted" x-text="e.last_login_at ? $store.fmt.dateTime(e.last_login_at) : 'ещё не входил'"></td>
+            <td><span class="crm-badge" :class="e.is_active ? 'bg-success-soft text-success' : 'bg-brand-light text-ink-muted'" x-text="e.is_active ? 'Активен' : 'Отключён'"></span></td>
+            <td class="text-right"><button type="button" class="btn-outline btn-s" @click="open(e)">Изменить</button></td>
+          </tr>
+        </template>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <template x-for="[id, title] in roles" :key="id">
+      <div class="crm-card px-5 py-4">
+        <p class="crm-label" x-text="title"></p>
+        <p class="mt-2 text-[0.8125rem] font-light" x-text="access[id]"></p>
+      </div>
+    </template>
+  </section>
+
+  <!-- Добавить / изменить сотрудника -->
+  <template x-teleport="body">
+  <div x-show="edit" x-cloak x-effect="document.documentElement.classList.toggle('overflow-hidden', !!edit)">
+  <template x-if="edit">
+    <div class="crm-modal-backdrop" @keydown.escape.window="edit = null" @click.self="edit = null">
+      <form class="crm-modal max-w-[34rem]" novalidate @submit.prevent="save()" role="dialog" aria-modal="true" aria-labelledby="emp-title">
+        <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-5 sm:px-7">
+          <div>
+            <h2 id="emp-title" class="crm-h2" x-text="edit.id ? edit.name : 'Новый сотрудник'"></h2>
+            <p class="mt-1 text-[0.75rem] text-ink-muted" x-text="edit.id ? 'Пароль меняется, только если ввести новый' : 'Передайте сотруднику логин и пароль — сменить пароль он сможет у вас'"></p>
+          </div>
+          <button type="button" class="text-xl text-ink-muted hover:text-ink" @click="edit = null" aria-label="Закрыть">×</button>
+        </div>
+        <div class="grid max-h-[65dvh] grid-cols-1 gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2 sm:px-7">
+          <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <span class="text-[0.75rem]">Имя *</span>
+            <input type="text" x-model="edit.name" class="crm-field" placeholder="Дана Ахметова" autocomplete="off" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Логин для входа *</span>
+            <input type="text" x-model="edit.login" class="crm-field font-mono" placeholder="dana" autocapitalize="none" spellcheck="false" autocomplete="off" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[0.75rem]">Телефон</span>
+            <input type="tel" x-model="edit.phone" class="crm-field" placeholder="+7 7XX XXX-XX-XX" autocomplete="off" />
+          </label>
+          <fieldset class="sm:col-span-2">
+            <legend class="text-[0.75rem]">Роль *</legend>
+            <div class="mt-1.5 grid gap-2">
+              <template x-for="[id, title] in roles" :key="id">
+                <label class="flex cursor-pointer items-start gap-3 rounded-control border px-4 py-3 transition" :class="edit.role === id ? 'border-brand-gold bg-brand-gold-soft' : 'border-line'">
+                  <input type="radio" :value="id" x-model="edit.role" class="mt-1 accent-brand-dark" />
+                  <span><span class="block text-[0.8125rem] font-medium" x-text="title"></span><span class="block text-[0.6875rem] text-ink-muted" x-text="access[id]"></span></span>
+                </label>
+              </template>
+            </div>
+          </fieldset>
+          <div class="sm:col-span-2">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-[0.75rem]" x-text="edit.id ? 'Новый пароль' : 'Пароль для первого входа *'"></span>
+              <button type="button" class="text-[0.6875rem] text-brand-gold hover:underline" @click="edit.password = suggest(); showPw = true">придумать</button>
+            </div>
+            <div class="relative mt-1.5">
+              <input :type="showPw ? 'text' : 'password'" x-model="edit.password" class="crm-field w-full pr-24 font-mono" :placeholder="edit.id ? 'оставьте пустым, чтобы не менять' : ''" autocomplete="new-password" />
+              <span class="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">
+                <button type="button" x-show="edit.password" class="rounded px-1.5 py-1 text-[0.6875rem] text-ink-muted hover:text-ink" @click="copy(edit.password)">копир.</button>
+                <button type="button" class="rounded px-1.5 py-1 text-[0.6875rem] text-ink-muted hover:text-ink" @click="showPw = !showPw" x-text="showPw ? 'скрыть' : 'показать'"></button>
+              </span>
+            </div>
+            <p x-show="edit.password && pwProblems.length" class="mt-1 text-[0.6875rem] text-error" x-text="`Не хватает: ${pwProblems.join(', ')}`"></p>
+          </div>
+          <label x-show="edit.id" class="flex items-center gap-2 text-[0.8125rem] sm:col-span-2">
+            <input type="checkbox" x-model="edit.is_active" class="accent-brand-dark" />
+            Может входить в CRM <span class="text-[0.6875rem] text-ink-muted">— снимите, если сотрудник уволился: история заказов останется</span>
+          </label>
+          <p x-show="formError" class="rounded-control bg-error-soft px-4 py-2.5 text-[0.75rem] text-error sm:col-span-2" x-text="formError"></p>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-3 border-t border-line px-5 py-4 sm:px-7">
+          <button type="button" class="btn-outline" @click="edit = null">Отмена</button>
+          <button type="submit" class="btn-primary" :disabled="saving" x-text="saving ? 'Сохраняем…' : edit.id ? 'Сохранить' : 'Добавить'"></button>
+        </div>
+      </form>
+    </div>
+  </template>
+  </div>
+  </template>
+</main>
+
+<!-- @include crm-layout-end.html -->
+</body>
+</html>

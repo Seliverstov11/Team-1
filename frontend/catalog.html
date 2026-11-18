@@ -23,7 +23,7 @@
 
   <!-- Фильтры в две ступени: раздел, затем категория внутри раздела -->
   <div class="card flex flex-col gap-3 px-4 py-3">
-    <div class="flex flex-wrap gap-2" role="group" aria-label="Раздел">
+    <div class="chip-row flex flex-wrap gap-2" role="group" aria-label="Раздел">
       <button type="button" class="chip" :class="!section && 'is-active'" @click="section = ''; category = ''">Все</button>
       <template x-for="s in $store.shop.sections" :key="s.id">
         <button type="button" class="chip" :class="section === s.id && 'is-active'" :aria-pressed="section === s.id"
@@ -34,7 +34,7 @@
       </template>
     </div>
     <div x-show="currentSection && currentSection.items.length > 1" x-cloak
-         class="flex flex-wrap gap-2 border-t border-line pt-3" role="group" aria-label="Категория">
+         class="chip-row flex flex-wrap gap-2 border-t border-line pt-3" role="group" aria-label="Категория">
       <button type="button" class="chip" :class="!category && 'is-active'" @click="category = ''" x-text="`Весь раздел`"></button>
       <template x-for="c in currentSection?.items ?? []" :key="c.id">
         <button type="button" class="chip" :class="category === c.slug && 'is-active'" :aria-pressed="category === c.slug" @click="pickCategory(c.slug)">

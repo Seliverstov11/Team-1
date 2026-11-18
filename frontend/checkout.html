@@ -27,6 +27,14 @@
         Менеджер свяжется с вами и подтвердит состав и доставку. Оплата — при получении
         или по QR Kaspi после подтверждения, онлайн-оплаты на сайте нет.
       </p>
+      <!-- Как узнать, что заказ готов -->
+      <div class="mx-auto mt-6 max-w-[30rem] rounded-xl border border-brand-gold-light bg-brand-gold-soft px-4 py-4 text-left text-[0.8125rem] leading-relaxed">
+        <p class="font-medium">Как узнать, что заказ готов</p>
+        <p class="mt-1 font-light">Статус меняется сам: <b class="font-medium">Принят → Подтверждён → Собран</b>.
+          <span x-text="done.order.delivery_method === 'pickup' ? `Когда увидите «Собран» — заказ готов, забирайте: ${$store.contacts.fullAddress}.` : 'Когда увидите «Собран» — заказ готов и скоро уйдёт в доставку.'"></span></p>
+        <p class="mt-2 font-light">Проверить статус — кнопка «Следить за заказом» ниже или в разделе «Профиль → Отследить заказ» по номеру
+          <b class="font-medium" x-text="`№ ${done.order.order_no}`"></b> и телефону <b class="font-medium" x-text="done.phone"></b>. Сохраните номер заказа.</p>
+      </div>
       <dl class="mx-auto mt-6 max-w-[22rem] space-y-1.5 text-left text-sm">
         <div class="flex justify-between"><dt class="font-light text-ink-muted">Товары</dt><dd x-text="$store.fmt.money($store.fmt.tiyn(done.order.items_total))"></dd></div>
         <div class="flex justify-between"><dt class="font-light text-ink-muted">Доставка</dt><dd x-text="done.order.delivery_method === 'pickup' ? 'самовывоз' : $store.fmt.money($store.fmt.tiyn(done.order.delivery))"></dd></div>
@@ -88,7 +96,7 @@
                        :class="form.delivery_method === id ? 'border-brand-gold bg-brand-gold-soft/60' : 'border-line hover:border-brand-gold-light'">
                   <input type="radio" :value="id" x-model="form.delivery_method" class="mt-1 accent-brand-dark" />
                   <span><span class="block text-sm" x-text="label"></span>
-                    <span class="text-xs font-light text-ink-muted" x-text="{ pickup: 'Пункт выдачи уточнит менеджер', courier: 'По городу, стоимость сообщит менеджер', cdek: 'В другие города, по тарифу СДЭК', kazpost: 'В другие города, по тарифу Казпочты' }[id]"></span></span>
+                    <span class="text-xs font-light text-ink-muted" x-text="{ pickup: 'Пункт выдачи уточнит менеджер', courier: 'По Астане — 1 200 ₸, другие города — 2 500 ₸', cdek: 'В другие города — 2 500 ₸', kazpost: 'В другие города — 2 500 ₸' }[id]"></span></span>
                 </label>
               </template>
             </div>

@@ -77,8 +77,6 @@
             <!-- @include fav-button.html -->
             <span x-text="$store.fav.has(p.group_id || p.id) ? 'В избранном' : 'Добавить в избранное'"></span>
           </div>
-          <a href="/cart.html" x-show="$store.cart.qty(p.id)" x-cloak class="mt-4 text-[0.8125rem] underline underline-offset-4 hover:text-brand-gold"
-             x-text="`В корзине: ${$store.cart.qty(p.id)} ${p.unit} — перейти в корзину`"></a>
         </div>
       </section>
 

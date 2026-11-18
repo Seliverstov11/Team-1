@@ -11,38 +11,36 @@
   <nav class="text-xs font-light text-ink-muted" aria-label="Хлебные крошки">
     <a href="/" class="hover:text-brand-gold">Главная</a> <span class="mx-1.5">/</span> <span class="text-ink">Контакты</span>
   </nav>
-  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+  <div x-data class="flex flex-wrap items-center gap-x-4 gap-y-2">
     <h1 class="font-heading text-[clamp(2rem,5vw,2.5rem)] font-medium leading-none">Контакты</h1>
-    <span class="demo-tag">Демо-данные</span>
+    <span x-show="!$store.contacts.complete" class="demo-tag">Часть данных уточняется</span>
   </div>
-  <p class="-mt-2 max-w-[44rem] text-sm font-light text-ink-muted">
-    Все данные на этой странице — заглушки. Заменим на настоящие, когда заказчик их подтвердит.
-  </p>
 
-  <section class="grid grid-cols-1 gap-3 sm:gap-5 md:grid-cols-2">
+  <section x-data class="grid grid-cols-1 gap-3 sm:gap-5 md:grid-cols-2">
     <div class="card p-6 sm:p-8">
-      <p class="eyebrow">Адрес</p>
-      <p class="mt-4 font-heading text-[1.625rem] font-medium leading-snug">Адрес уточняется</p>
-      <p class="mt-2 text-sm font-light text-ink-muted">Казахстан</p>
+      <p class="eyebrow">Адрес и самовывоз</p>
+      <p class="mt-4 font-heading text-[1.625rem] font-medium leading-snug" x-text="$store.contacts.fullAddress"></p>
+      <p class="mt-2 text-sm font-light text-ink-muted">Самовывоз бесплатно — заберите заказ, когда он в статусе «Собран»</p>
+      <a :href="$store.contacts.map" target="_blank" rel="noopener" class="btn-outline mt-5">Открыть на карте 2ГИС</a>
     </div>
     <div class="card p-6 sm:p-8">
       <p class="eyebrow">Телефон</p>
-      <p class="mt-4 font-heading text-[1.625rem] font-medium">+7 (700) 000-00-00</p>
-      <p class="mt-2 text-sm font-light text-ink-muted">info@example.kz</p>
+      <p class="mt-4 font-heading text-[1.625rem] font-medium" x-text="$store.contacts.phoneText"></p>
+      <p x-show="$store.contacts.email" class="mt-2 text-sm font-light text-ink-muted" x-text="$store.contacts.email"></p>
+      <div class="mt-5 flex flex-wrap gap-3">
+        <a x-show="$store.contacts.tel" :href="$store.contacts.tel" class="btn-primary">Позвонить</a>
+        <a x-show="$store.contacts.wa" :href="$store.contacts.wa" target="_blank" rel="noopener" class="btn-outline">WhatsApp</a>
+      </div>
     </div>
     <div class="card p-6 sm:p-8">
       <p class="eyebrow">Режим работы</p>
-      <dl class="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-        <dt class="font-light text-ink-muted">Понедельник — воскресенье</dt><dd>9:00 — 21:00</dd>
-      </dl>
+      <p class="mt-4 text-sm" x-text="$store.contacts.hours"></p>
+      <p class="mt-2 text-sm font-light text-ink-muted">Заказы на сайте принимаем круглосуточно — менеджер перезвонит в рабочее время</p>
     </div>
     <div class="card p-6 sm:p-8">
-      <p class="eyebrow">Как с нами связаться</p>
-      <ul class="mt-4 space-y-2 text-sm">
-        <li>Позвонить по телефону в часы работы</li>
-        <li>Написать на электронную почту</li>
-        <li>Оставить комментарий при <a href="/cart.html" class="underline underline-offset-4 hover:text-brand-gold">оформлении заказа</a> — менеджер перезвонит</li>
-      </ul>
+      <p class="eyebrow">Где мой заказ</p>
+      <p class="mt-4 text-sm">Статус заказа видно на странице <a href="/account.html?mode=track" class="underline underline-offset-4 hover:text-brand-gold">«Отследить заказ»</a> — по номеру заказа и телефону. Когда заказ собран, там появится «Заказ готов».</p>
+      <p class="mt-3 text-sm font-light text-ink-muted">Изменить заказ — оставьте комментарий при <a href="/cart.html" class="underline underline-offset-4 hover:text-brand-gold">оформлении</a> или позвоните менеджеру</p>
     </div>
   </section>
 </main>

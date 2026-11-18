@@ -5,7 +5,7 @@
 // версии CRM подхватывает её при следующем открытии, переустанавливать приложение не нужно.
 // Меняется логика этого файла — поднимите VERSION: браузер увидит новый sw.js и заменит старый сам.
 
-const VERSION = 'v1'
+const VERSION = 'v2'
 const CACHE = `bakeloom-crm-${VERSION}`
 
 const SHELL = [
@@ -17,9 +17,12 @@ const SHELL = [
   '/crm/stock.html',
   '/crm/clients.html',
   '/crm/catalog.html',
+  '/crm/analytics.html',
+  '/crm/employees.html',
   '/crm/manifest.webmanifest',
   '/crm/icons/icon-192.png',
   '/crm/icons/icon-512.png',
+  '/crm/icons/apple-touch-icon.png',
   '/img/logo.svg',
 ]
 
