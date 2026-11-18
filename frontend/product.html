@@ -36,15 +36,16 @@
           <h1 class="mt-3 text-balance font-heading text-[clamp(1.875rem,2.6vw,2.75rem)] font-medium leading-tight" x-text="p.name"></h1>
           <p class="mt-2 text-xs tracking-wider text-ink-muted" x-text="`Арт. ${p.sku}`"></p>
 
-          <!-- Фасовки одной карточки: у каждой свои цена, остаток и артикул -->
+          <!-- Фасовки одной карточки: у каждой свои цена, остаток и артикул.
+               Узкий экран — сетка в 2 колонки, подписи переносятся, кнопка не ниже 48 px (#47) -->
           <div x-show="card?.multi" class="mt-6">
             <p class="text-[0.8125rem] font-light text-ink-muted">Фасовка</p>
-            <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Фасовка">
+            <div class="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" role="radiogroup" aria-label="Фасовка">
               <template x-for="v in card?.variants ?? []" :key="v.id">
                 <button type="button" role="radio" :aria-checked="v.id === p.id" @click="pick(v)"
-                        class="flex min-w-[6.5rem] flex-col items-start rounded-control border px-3.5 py-2 text-left transition"
+                        class="flex min-h-12 min-w-0 flex-col items-start justify-center rounded-control border px-3.5 py-2 text-left transition sm:min-w-[6.5rem]"
                         :class="v.id === p.id ? 'border-brand-dark bg-brand-dark text-brand-light' : 'border-line hover:border-brand-gold'">
-                  <span class="text-[0.8125rem] font-medium" :class="!bl.inStock(v) && v.id !== p.id && 'text-ink-placeholder line-through'" x-text="v.variant_name"></span>
+                  <span class="max-w-full text-[0.8125rem] font-medium leading-snug [overflow-wrap:anywhere]" :class="!bl.inStock(v) && v.id !== p.id && 'text-ink-placeholder line-through'" x-text="v.variant_name"></span>
                   <span class="text-[0.6875rem]" :class="v.id === p.id ? 'text-brand-gold-light' : 'text-ink-muted'"
                         x-text="bl.inStock(v) ? $store.fmt.money(bl.retail(v)) : 'нет в наличии'"></span>
                 </button>
@@ -68,10 +69,11 @@
             <dd x-text="p.unit"></dd>
           </dl>
 
-          <div class="mt-6 grid gap-1 sm:mt-8 sm:max-w-[22rem]">
+          <!-- на узком экране кнопки покупки крупнее — не меньше 48 px под палец (#47) -->
+          <div class="mt-6 grid gap-1 sm:mt-8 sm:max-w-[22rem] max-sm:[&>div:first-child]:h-12 max-sm:[&_button]:min-h-12 max-sm:[&>div:first-child_button]:size-11">
             <!-- @include buy-box.html -->
           </div>
-          <div class="mt-4 flex items-center gap-3 text-[0.8125rem] font-light">
+          <div class="mt-4 flex min-h-12 items-center gap-3 text-[0.8125rem] font-light">
             <!-- @include fav-button.html -->
             <span x-text="$store.fav.has(p.group_id || p.id) ? 'В избранном' : 'Добавить в избранное'"></span>
           </div>
