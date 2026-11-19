@@ -337,3 +337,11 @@
 [data-page="cart"] .bottom-spacer, [data-page="checkout"] .bottom-spacer { height: calc(9.5rem + env(safe-area-inset-bottom)); }
 /* В корзине кнопка «Корзина» в шапке не нужна — мы уже в ней */
 [data-page="cart"] [data-hnav="cart"] { display: none; }
+
+/* В корзине и оформлении на телефоне скрываем плавающую кнопку поддержки, чтобы не перекрывать сумму */
+@media (max-width: 639.98px) {
+  :is([data-page="cart"], [data-page="checkout"]) #support-toggle,
+  :is([data-page="cart"], [data-page="checkout"]) .support-btn {
+    display: none !important;
+  }
+}
