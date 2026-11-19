@@ -11,6 +11,7 @@ export const SHOP = {
   email: null,
   hours: 'Ежедневно 9:00 — 21:00',   // уточнить у заказчика
   instagram: null,                   // 'bakeloom.kz' без @
+  chatWhatsappUrl: 'https://chat.whatsapp.com/BlkPTekTfsXGVRMwxixAoP',
 }
 
 const digits = s => String(s ?? '').replace(/\D/g, '')
@@ -21,6 +22,7 @@ export const shopInfo = {
   get phoneText() { return SHOP.phone ?? 'Телефон уточняется' },
   get tel() { return SHOP.phone ? `tel:+${digits(SHOP.phone)}` : null },
   get wa() { const n = digits(SHOP.whatsapp ?? SHOP.phone); return n ? `https://wa.me/${n}` : null },
+  get chat() { return SHOP.chatWhatsappUrl },
   get mailto() { return SHOP.email ? `mailto:${SHOP.email}` : null },
   get map() { return `https://2gis.kz/search/${encodeURIComponent([SHOP.city ?? 'Казахстан', SHOP.address].join(', '))}` },
   get complete() { return Boolean(SHOP.phone && SHOP.city) },
