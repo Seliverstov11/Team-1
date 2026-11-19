@@ -188,12 +188,26 @@
         <button type="button" role="tab" class="chip" :class="tab === 'orders' && 'is-active'" :aria-selected="tab === 'orders'" @click="tab = 'orders'">Мои заказы</button>
         <button type="button" role="tab" class="chip" :class="tab === 'profile' && 'is-active'" :aria-selected="tab === 'profile'" @click="tab = 'profile'">Личные данные</button>
         <a href="/favorites.html" class="chip inline-flex items-center gap-2">Избранное <span class="counter" x-show="$store.fav.count" x-text="$store.fav.count"></span></a>
-        <button type="button" class="ml-auto text-xs font-light text-ink-muted underline underline-offset-4 hover:text-error" @click="$store.account.logout()">Выйти</button>
       </div>
 
       <!-- Мои заказы — GET /api/me/orders -->
       <section x-show="tab === 'orders'" class="flex flex-col gap-4">
-        <p x-show="loading && !orders.length" class="py-6 text-sm font-light text-ink-muted" role="status">Загружаем заказы…</p>
+        <div x-show="loading && !orders.length" class="space-y-3" role="status" aria-label="Загружаем заказы…">
+          <template x-for="i in 3" :key="i">
+            <div class="card flex items-center justify-between p-4 sm:px-7 sm:py-5" aria-hidden="true">
+              <div class="space-y-2">
+                <div class="skeleton h-5 w-24 rounded"></div>
+                <div class="skeleton h-3 w-32 rounded"></div>
+              </div>
+              <div class="skeleton h-6 w-20 rounded-full"></div>
+              <div class="skeleton h-6 w-24 rounded"></div>
+            </div>
+          </template>
+          <div class="flex items-center justify-center gap-2 py-3 text-xs text-ink-muted">
+            <span class="spinner size-4"></span>
+            <span x-text="$store.loading?.slow ? 'Сервер просыпается, ещё пару секунд…' : 'Загружаем заказы…'"></span>
+          </div>
+        </div>
         <p x-show="error" x-cloak class="rounded-card bg-error-soft px-5 py-3 text-[0.8125rem] text-error" x-text="error"></p>
         <div x-show="!loading && !error && !orders.length" class="card px-8 py-14 text-center">
           <p class="font-heading text-[1.625rem]">Заказов пока нет</p>
