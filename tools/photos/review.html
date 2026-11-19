@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Проверка фото · Bakeloom</title>
+<style>
+  :root { --dark:#4A5236; --gold:#B8975A; --light:#F7F4EC; --sand:#EDE6D6; --ink:#2E2A22; --muted:#7a7468; --err:#B4442F; --ok:#4E7A3A; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 Montserrat, system-ui, sans-serif; color: var(--ink); background: #fff; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--dark); color: #fff; padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  header h1 { font: 600 18px/1 Georgia, serif; margin: 0 8px 0 0; }
+  header .bar { flex: 1 1 200px; height: 8px; background: rgba(255,255,255,.2); border-radius: 4px; overflow: hidden; min-width: 160px; }
+  header .bar i { display: block; height: 100%; background: var(--gold); }
+  header select, header button { font: inherit; padding: 5px 10px; border-radius: 8px; border: 0; }
+  header .saved { font-size: 12px; opacity: .8; min-width: 90px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 20px; background: var(--light); border-bottom: 1px solid var(--sand); }
+  nav a { text-decoration: none; color: var(--ink); background: #fff; border: 1px solid var(--sand); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+  nav a.done { background: #E6E8DC; border-color: #c9cfb7; }
+  section { padding: 8px 20px 24px; }
+  section > h2 { font: 600 20px Georgia, serif; display: flex; align-items: center; gap: 12px; margin: 16px 0 10px; }
+  section > h2 small { font: 13px Montserrat, sans-serif; color: var(--muted); }
+  section > h2 button { font: 12px Montserrat, sans-serif; margin-left: auto; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--dark); background: #fff; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+  .card { border: 1px solid var(--sand); border-radius: 14px; padding: 10px; display: grid; grid-template-columns: 150px 1fr; gap: 10px; background: #fff; }
+  .card.reviewed { border-color: #c9cfb7; background: #FBFBF7; }
+  .card.none .main { opacity: .35; }
+  .card.focus { outline: 3px solid var(--gold); }
+  .main { width: 150px; height: 150px; border-radius: 10px; background: var(--light) center/cover; position: relative; }
+  .main .flag { position: absolute; left: 6px; top: 6px; background: var(--err); color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 6px; }
+  .info b { display: block; font-size: 13px; }
+  .info .sku { color: var(--muted); font-size: 11px; }
+  .info .attrs { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .info .q { font-size: 11px; color: var(--gold); }
+  .thumbs { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; }
+  .thumbs button { width: 64px; height: 64px; padding: 0; border: 2px solid transparent; border-radius: 8px; background: var(--light) center/cover; cursor: pointer; position: relative; }
+  .thumbs button.sel { border-color: var(--dark); }
+  .thumbs button .flag { position: absolute; right: 2px; bottom: 2px; background: var(--err); width: 8px; height: 8px; border-radius: 50%; }
+  .thumbs a { font-size: 11px; color: var(--muted); }
+  .actions { grid-column: 1 / -1; display: flex; gap: 6px; }
+  .actions button { flex: 1; font: 12px Montserrat, sans-serif; padding: 6px; border-radius: 8px; border: 1px solid var(--sand); background: #fff; cursor: pointer; }
+  .actions .ok.on { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .actions .no.on { background: var(--err); color: #fff; border-color: var(--err); }
+  .hint { padding: 8px 20px; font-size: 12px; color: var(--muted); }
+  .empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Проверка фото</h1>
+  <span id="count"></span>
+  <div class="bar"><i id="bar"></i></div>
+  <select id="filter">
+    <option value="all">Все позиции</option>
+    <option value="todo">Не просмотренные</option>
+    <option value="none">«Нет фото»</option>
+    <option value="flag">Товар у края кадра</option>
+  </select>
+  <span class="saved" id="saved"></span>
+</header>
+<nav id="nav"></nav>
+<div class="hint">Клик по варианту — выбрать фото (для всех фасовок этого товара). «Подходит» — позиция просмотрена. «Нет фото» — останется заглушка.
+  Клавиши: ↑/↓ — позиция, 1–4 — вариант, Enter — подходит, 0 — нет фото. Красная метка — товар упирается в край исходного кадра, проверьте, не обрезан ли.</div>
+<main id="app"><div class="empty">Загрузка…</div></main>
+<script>
+const $ = s => document.querySelector(s)
+let D, sel, order = [], focus = 0, saveTimer
+const img = id => `work/out/${id}.webp`
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
+fetch('/api/data').then(r => r.json()).then(d => {
+  D = d; sel = d.selection || {}
+  for (const it of D.items) if (!sel[it.sku]) sel[it.sku] = { photo: D.candidates[it.sku]?.[0]?.id ?? null, reviewed: false }
+  render()
+})
+
+function state(it) { return sel[it.sku] }
+function flagged(id) { return D.process[id]?.cropped || D.process[id]?.empty }
+const same = (a, b) => a != null && b != null && String(a) === String(b)
+
+function render() {
+  const f = $('#filter').value
+  const show = it => f === 'all' || (f === 'todo' && !state(it).reviewed) || (f === 'none' && !state(it).photo) || (f === 'flag' && flagged(state(it).photo))
+  const cats = [...new Set(D.items.map(i => i.category))]
+  order = []
+  $('#app').innerHTML = cats.map((c, ci) => {
+    const all = D.items.filter(i => i.category === c), items = all.filter(show)
+    if (!items.length) return ''
+    order.push(...items)
+    const done = all.filter(i => state(i).reviewed).length
+    return `<section id="s${ci}"><h2>${esc(c)} <small>${done} / ${all.length}</small>
+      <button data-cat="${ci}">Отметить раздел просмотренным</button></h2>
+      <div class="grid">${items.map(card).join('')}</div></section>`
+  }).join('') || '<div class="empty">Нет позиций под фильтр</div>'
+  $('#nav').innerHTML = cats.map((c, ci) => {
+    const all = D.items.filter(i => i.category === c)
+    return `<a href="#s${ci}" class="${all.every(i => state(i).reviewed) ? 'done' : ''}">${esc(c)} · ${all.filter(i => state(i).reviewed).length}/${all.length}</a>`
+  }).join('')
+  const n = D.items.filter(i => state(i).reviewed).length
+  $('#count').textContent = `Просмотрено ${n} / ${D.items.length} · без фото ${D.items.filter(i => !state(i).photo).length}`
+  $('#bar').style.width = (100 * n / D.items.length) + '%'
+  focus = Math.min(focus, Math.max(0, order.length - 1)); markFocus(false)
+}
+
+function card(it) {
+  const s = state(it), c = D.candidates[it.sku] || []
+  const a = it.attrs || {}
+  const attrs = [a['Вес / размер'], a['Цвет'], a['Состав / материал']].filter(Boolean).join(' · ')
+  return `<div class="card ${s.reviewed ? 'reviewed' : ''} ${s.photo ? '' : 'none'}" data-sku="${esc(it.sku)}">
+    <div class="main" style="${s.photo ? `background-image:url(${img(s.photo)})` : ''}">${s.photo && flagged(s.photo) ? '<span class="flag">край кадра</span>' : ''}</div>
+    <div class="info"><span class="sku">${esc(it.sku)}</span><b>${esc(it.name)}</b>${esc(it.variant || '')}
+      <div class="attrs">${esc(attrs)}</div><div class="q">Запрос: ${esc(D.queries[it.sku])}</div></div>
+    <div class="thumbs">${c.map((p, i) => `<button title="${i + 1}: ${esc(p.alt)} — ${esc(p.photographer)}" data-pick="${p.id}" class="${same(s.photo, p.id) ? 'sel' : ''}" style="background-image:url(${img(p.id)})">${flagged(p.id) ? '<span class="flag"></span>' : ''}</button>`).join('') || '<span class="sku">Нет вариантов — запустите fetch или local</span>'}
+      ${(u => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">оригинал</a>` : '')(c.find(p => same(p.id, s.photo))?.url)}</div>
+    <div class="actions"><button class="ok ${s.reviewed && s.photo ? 'on' : ''}" data-ok>Подходит</button><button class="no ${s.reviewed && !s.photo ? 'on' : ''}" data-none>Нет фото</button></div>
+  </div>`
+}
+
+function setGroup(it, patch) {
+  // Фото выбирается сразу для всех фасовок товара; «просмотрено» — только у этой позиции
+  for (const o of D.items) if (o.group === it.group && 'photo' in patch && JSON.stringify(D.candidates[o.sku]) === JSON.stringify(D.candidates[it.sku])) sel[o.sku].photo = patch.photo
+  Object.assign(sel[it.sku], patch)
+  save(); render()
+}
+
+function save() {
+  $('#saved').textContent = 'сохраняю…'
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => fetch('/api/selection', { method: 'POST', body: JSON.stringify(sel) })
+    .then(r => { $('#saved').textContent = r.ok ? 'сохранено ✓' : 'ошибка сохранения' })
+    .catch(() => { $('#saved').textContent = 'сервер не отвечает' }), 300)
+}
+
+const bySku = sku => D.items.find(i => i.sku === sku)
+const c = it => D.candidates[it.sku] || []
+document.addEventListener('click', e => {
+  const cardEl = e.target.closest('.card'), it = cardEl && bySku(cardEl.dataset.sku)
+  if (it) focus = order.indexOf(it)
+  const pick = e.target.closest('[data-pick]')
+  if (pick) return setGroup(it, { photo: c(it).find(p => same(p.id, pick.dataset.pick))?.id ?? pick.dataset.pick, reviewed: true })
+  if (e.target.closest('[data-ok]')) return setGroup(it, { photo: state(it).photo ?? D.candidates[it.sku]?.[0]?.id ?? null, reviewed: true })
+  if (e.target.closest('[data-none]')) return setGroup(it, { photo: null, reviewed: true })
+  const cat = e.target.closest('[data-cat]')
+  if (cat) {
+    const c = [...new Set(D.items.map(i => i.category))][+cat.dataset.cat]
+    D.items.filter(i => i.category === c).forEach(i => { sel[i.sku].reviewed = true })
+    save(); render()
+  }
+})
+$('#filter').onchange = () => { focus = 0; render() }
+
+function markFocus(scroll = true) {
+  document.querySelectorAll('.card.focus').forEach(c => c.classList.remove('focus'))
+  const it = order[focus]; if (!it) return
+  const el = document.querySelector(`.card[data-sku="${CSS.escape(it.sku)}"]`)
+  el?.classList.add('focus'); if (scroll) el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+}
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, select, textarea')) return
+  const it = order[focus]; if (!it) return
+  if (e.key === 'ArrowDown') { focus = Math.min(order.length - 1, focus + 1); markFocus(); e.preventDefault() }
+  else if (e.key === 'ArrowUp') { focus = Math.max(0, focus - 1); markFocus(); e.preventDefault() }
+  else if (e.key === 'Enter') { document.querySelector(`.card[data-sku="${CSS.escape(it.sku)}"] [data-ok]`).click(); focus = Math.min(order.length - 1, focus + 1); markFocus() }
+  else if (e.key === '0') { setGroup(it, { photo: null, reviewed: true }) }
+  else if (/^[1-9]$/.test(e.key)) { const p = D.candidates[it.sku]?.[+e.key - 1]; if (p) setGroup(it, { photo: p.id, reviewed: true }) }
+})
+</script>
+</body>
+</html>
