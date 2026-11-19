@@ -187,7 +187,6 @@
       <div class="flex flex-wrap items-center gap-2" role="tablist">
         <button type="button" role="tab" class="chip" :class="tab === 'orders' && 'is-active'" :aria-selected="tab === 'orders'" @click="tab = 'orders'">Мои заказы</button>
         <button type="button" role="tab" class="chip" :class="tab === 'profile' && 'is-active'" :aria-selected="tab === 'profile'" @click="tab = 'profile'">Личные данные</button>
-        <a href="/favorites.html" class="chip inline-flex items-center gap-2">Избранное <span class="counter" x-show="$store.fav.count" x-text="$store.fav.count"></span></a>
       </div>
 
       <!-- Мои заказы — GET /api/me/orders -->
