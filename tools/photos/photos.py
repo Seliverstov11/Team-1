@@ -4,13 +4,14 @@
     python3 tools/photos/photos.py items      # позиции из миграций 001–006 → work/items.json
     python3 tools/photos/photos.py fetch      # кандидаты с Pexels → work/candidates.json + work/raw/
     python3 tools/photos/photos.py local DIR  # или свои фото заказчика вместо стока (без Pexels)
+    python3 tools/photos/photos.py render     # свои рендеры в Blender по названию и размерам (#56)
     python3 tools/photos/photos.py process    # убрать фон, подложка, 800×800 webp → work/out/
     python3 tools/photos/photos.py serve      # страница проверки http://localhost:8765/review.html
     python3 tools/photos/photos.py build      # по selection.json → frontend/public/img/products + миграция
 
 Подробности — README.md рядом.
 """
-import argparse, glob, http.server, json, os, re, shutil, sqlite3, sys, time, urllib.parse, urllib.request
+import argparse, glob, http.server, json, os, re, shutil, sqlite3, subprocess, sys, time, urllib.parse, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -259,6 +260,81 @@ def cmd_local(args):
         print(f'не узнал артикул в {len(unknown)} файлах: {", ".join(unknown[:10])}')
 
 
+# ---------- render: свои рендеры в Blender (#56) ----------
+
+RENDER_CREDIT = 'рендер Bakeloom (Blender)'
+
+
+def cmd_render(args):
+    """Упаковка, декор и шоколад по названию и размерам → work/raw/render-<ключ>.png (см. specs.py).
+    Одинаковые по виду позиции получают один рендер. Кандидат «рендер» ставится первым,
+    свои фото заказчика (local) — ещё раньше."""
+    import specs
+    items = load_json(WORK / 'items.json') or sys.exit('Сначала: photos.py items')
+    by_key, sku_key = {}, {}
+    for it in items:
+        sp = specs.spec(it)
+        if sp:
+            by_key.setdefault(sp['key'], sp)
+            sku_key[it['sku']] = sp['key']
+    spec_file = WORK / 'render_specs.json'
+    save_json(spec_file, list(by_key.values()))
+    blender = args.blender or os.environ.get('BLENDER') or shutil.which('blender')
+    if not blender:
+        sys.exit('Нужен Blender 4.2+: в PATH, в переменной BLENDER или --blender /путь/к/blender')
+    raw = WORK / 'raw'; raw.mkdir(parents=True, exist_ok=True)
+    cmd = [blender, '-b', '--factory-startup', '-P', str(HERE / 'render_blender.py'), '--',
+           str(spec_file), str(raw), '--samples', str(args.samples)]
+    if args.only:
+        cmd += ['--only', args.only]
+    if args.refresh:
+        cmd += ['--refresh']
+    print(f'рендеров: {len(by_key)} для {len(sku_key)} позиций (без рендера: {len(items) - len(sku_key)})')
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    for line in proc.stdout:
+        if line.startswith(('RENDER', 'FAIL', 'Traceback', 'Error')):
+            print(' ', line.rstrip())
+    proc.wait()
+
+    cands = load_json(WORK / 'candidates.json', {})
+    for it in items:
+        key = sku_key.get(it['sku'])
+        if not key or not (raw / f'render-{key}.png').exists():
+            continue
+        lst = [p for p in cands.get(it['sku'], []) if not str(p['id']).startswith('render-')]
+        own = [p for p in lst if str(p['id']).startswith('own-')]
+        rest = [p for p in lst if not str(p['id']).startswith('own-')]
+        cands[it['sku']] = own + [dict(id=f'render-{key}', src=None, thumb=None, url=None,
+                                       alt=f"{it['name']} {it['variant'] or ''}".strip(),
+                                       photographer=RENDER_CREDIT, photographer_url=None)] + rest
+    save_json(WORK / 'candidates.json', cands)
+
+
+def place_render(pid):
+    """Рендер с прозрачным фоном и настоящей тенью: кадрируем по рамке товара (без тени)
+    и кладём на подложку целиком, чтобы тень не обрезалась."""
+    import numpy as np
+    from PIL import Image
+    src = Image.open(WORK / 'raw' / f'{pid}.png').convert('RGBA')
+    x0, y0, x1, y1 = json.loads((WORK / 'raw' / f'{pid}.json').read_text())['bbox']
+    a = np.asarray(src.getchannel('A'), dtype=np.float32)
+    # тень у краёв кадра рендера гасим плавно, чтобы на подложке не было ступеньки
+    h, w = a.shape
+    yy, xx = np.mgrid[0:h, 0:w]
+    edge = np.minimum.reduce([xx, yy, w - 1 - xx, h - 1 - yy]) / (0.08 * w)
+    a *= np.clip(edge, 0, 1)
+    src.putalpha(Image.fromarray(a.astype('uint8')))
+    inner = SIZE * (1 - 2 * FIELD)
+    k = min(inner / (x1 - x0), inner / (y1 - y0))
+    img = src.resize((round(w * k), round(h * k)), Image.LANCZOS)
+    cx, cy = (x0 + x1) / 2 * k, (y0 + y1) / 2 * k
+    canvas = Image.new('RGBA', (SIZE, SIZE), BG + (255,))
+    layer = Image.new('RGBA', (SIZE, SIZE), (0, 0, 0, 0))
+    layer.paste(img, (round(SIZE / 2 - cx), round(SIZE / 2 - cy)))
+    canvas.alpha_composite(layer)
+    return canvas.convert('RGB')
+
+
 # ---------- process: единый стиль ----------
 
 def cmd_process(args):
@@ -271,9 +347,14 @@ def cmd_process(args):
     print(f'обработать: {len(todo)} из {len(ids)}')
     if not todo:
         return
-    remover = BackgroundRemover(args.model)
     meta = load_json(WORK / 'process.json', {})
+    remover = None
     for n, pid in enumerate(todo, 1):
+        if (WORK / 'raw' / f'{pid}.png').exists():           # свой рендер: фон уже прозрачный
+            place_render(pid).save(out / f'{pid}.webp', 'WEBP', quality=86, method=6)
+            meta[str(pid)] = {'render': True}
+            continue
+        remover = remover or BackgroundRemover(args.model)
         img = Image.open(WORK / 'raw' / f'{pid}.jpg').convert('RGB')
         mask = remover.mask(img)
         rgba = img.copy(); rgba.putalpha(mask)
@@ -400,14 +481,19 @@ def cmd_build(_):
             sys.exit(f'{it["sku"]}: нет обработанного {src} — запустите process')
         shutil.copyfile(src, OUT_DIR / name)
         p = next((p for p in cands.get(it['sku'], []) if str(p['id']) == str(pid)), None) or {}
-        credits[name] = {'pexels': p.get('url'), 'photographer': p.get('photographer')}
+        if str(pid).startswith('render-'):
+            credits[name] = {'source': RENDER_CREDIT, 'license': 'собственная работа команды'}
+        elif str(pid).startswith('own-'):
+            credits[name] = {'source': 'фото заказчика', 'file': p.get('alt')}
+        else:
+            credits[name] = {'pexels': p.get('url'), 'photographer': p.get('photographer'), 'license': 'Pexels License'}
         sku = it['sku'].replace("'", "''")
         lines.append(f"UPDATE products SET image_url = '/img/products/{name}' WHERE sku = '{sku}';")
     MIGRATION.write_text(
         '-- Фото товаров (#42, #46): сгенерировано tools/photos/photos.py build из selection.json.\n'
         '-- Руками не править — поменять выбор на странице проверки и пересобрать.\n'
         '-- Позиции без подходящего фото остаются без image_url: сайт показывает заглушку раздела.\n'
-        '-- Фото — Pexels (бесплатная лицензия, авторы в frontend/public/img/products/CREDITS.json).\n\n'
+        '-- Источники: свои рендеры (Blender), фото заказчика, Pexels — по файлам в frontend/public/img/products/CREDITS.json.\n\n'
         + '\n'.join(lines) + '\n', 'utf8')
     save_json(OUT_DIR / 'CREDITS.json', credits)
     register_migration()
@@ -438,10 +524,12 @@ def main():
     f = sub.add_parser('fetch'); f.add_argument('--per-query', type=int, default=CANDIDATES); f.add_argument('--refresh', action='store_true')
     p = sub.add_parser('process'); p.add_argument('--model', default='isnet-general-use'); p.add_argument('--refresh', action='store_true')
     s = sub.add_parser('serve'); s.add_argument('--port', type=int, default=8765)
+    r = sub.add_parser('render'); r.add_argument('--samples', type=int, default=96)
+    r.add_argument('--blender'); r.add_argument('--only', help='ключи или виды через запятую'); r.add_argument('--refresh', action='store_true')
     l = sub.add_parser('local'); l.add_argument('dir', help='папка с фото: <артикул>.jpg, <артикул>_2.jpg…')
     sub.add_parser('build')
     a = ap.parse_args()
-    {'items': cmd_items, 'fetch': cmd_fetch, 'local': cmd_local, 'process': cmd_process, 'serve': cmd_serve, 'build': cmd_build}[a.cmd](a)
+    {'items': cmd_items, 'fetch': cmd_fetch, 'local': cmd_local, 'render': cmd_render, 'process': cmd_process, 'serve': cmd_serve, 'build': cmd_build}[a.cmd](a)
 
 
 if __name__ == '__main__':
