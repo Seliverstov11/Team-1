@@ -45,7 +45,12 @@
           </li>
         </template>
         <li x-show="!loading && !queue.length" class="px-5 py-10 text-center text-[0.8125rem] text-ink-muted">Очередь пуста</li>
-        <li x-show="loading" class="px-5 py-10 text-center text-[0.8125rem] text-ink-muted">Загружаем…</li>
+        <li x-show="loading" class="px-5 py-10 text-center text-[0.8125rem] text-ink-muted">
+          <div class="flex flex-col items-center justify-center gap-2">
+            <span class="spinner size-5"></span>
+            <span class="text-xs" x-text="$store.loading?.slow ? 'Сервер просыпается, ещё пару секунд…' : 'Загружаем…'"></span>
+          </div>
+        </li>
       </ul>
     </section>
 

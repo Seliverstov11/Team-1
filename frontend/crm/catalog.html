@@ -49,7 +49,12 @@
             </td>
           </tr>
         </template>
-        <tr x-show="loading"><td colspan="7" class="py-12 text-center text-ink-muted">Загружаем…</td></tr>
+        <tr x-show="loading"><td colspan="7" class="py-12 text-center text-ink-muted">
+          <div class="flex flex-col items-center justify-center gap-2">
+            <span class="spinner size-6"></span>
+            <span class="text-xs" x-text="$store.loading?.slow ? 'Сервер просыпается, ещё пару секунд…' : 'Загружаем…'"></span>
+          </div>
+        </td></tr>
         <tr x-show="!loading && !rows.length"><td colspan="7" class="py-12 text-center text-ink-muted">Ничего не найдено</td></tr>
       </tbody>
     </table></div>

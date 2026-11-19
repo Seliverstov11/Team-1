@@ -1,12 +1,12 @@
 import Alpine from 'alpinejs'
-import { api, onUnauthorized, session } from './api.js'
+import { api, onUnauthorized, session, onLoadingChange } from './api.js'
 import {
   available, availableUnits, basePrice, buildCards, buildSections, defaultVariant, deliveryCost, groupById, groupOfCategory,
   inStock, isPersonal, lineSum, retail, variantLabel,
 } from './catalog.js'
 import { formatQty, formatTiyn, milli, qtyToString, tiyn, tiynToString } from './money.js'
 import { DELIVERY, FLOW, PAYMENT, STATUSES, paymentKey } from './orders.js'
-import { fmt, formatPhone, isPhone, persisted, save } from './util.js'
+import { fmt, formatPhone, isPhone, persisted, save, initPageProgress } from './util.js'
 import { passwordProblems, passwordStrength } from './password.js'
 import { orderNextStep, shopInfo } from './shop-info.js'
 
@@ -30,6 +30,21 @@ const LOCK_KEY = 'bakeloom.login.lock'   // { fails, until } — пауза по
 
 // ---------------------------------------------------------------- хранилища
 document.addEventListener('alpine:init', () => {
+  const pageProgress = initPageProgress()
+  Alpine.store('loading', {
+    busy: false,
+    slow: false,
+  })
+  onLoadingChange(s => {
+    const store = Alpine.store('loading')
+    if (store) {
+      store.busy = s.busy
+      store.slow = s.slow
+    }
+    if (s.busy) pageProgress.start()
+    else pageProgress.done()
+  })
+
   Alpine.store('ui', {
     page: document.body.dataset.page ?? '',
     // Сотрудник открыл сайт из CRM — показываем «← В CRM», чтобы было понятно, как вернуться

@@ -1,5 +1,15 @@
 <a href="#main" class="sr-only z-[60] rounded-control bg-brand-dark px-4 py-2 text-brand-light focus:not-sr-only focus:fixed focus:left-3 focus:top-3">К содержимому</a>
 
+<!-- Тонкая полоса прогресса перехода сверху -->
+<div id="page-progress" class="page-progress-bar" aria-hidden="true"></div>
+
+<!-- Мягкая подпись при долгом ответе API (> 4 сек) -->
+<div x-data x-show="$store.loading?.slow" x-cloak x-transition.opacity role="status" aria-live="polite"
+     class="pointer-events-none fixed top-3 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 rounded-full border border-brand-gold/60 bg-surface/95 px-4 py-2 text-xs text-ink shadow-lift backdrop-blur">
+  <span class="size-2 rounded-full bg-brand-gold motion-safe:animate-pulse"></span>
+  <span class="font-medium text-ink">Сервер просыпается, ещё пару секунд…</span>
+</div>
+
 <div x-data class="flex min-h-dvh">
 
   <!-- Затемнение под выдвижным меню (экраны уже 1024px) -->
@@ -88,4 +98,14 @@
     </header>
 
     <p x-show="$store.crm.error" x-text="$store.crm.error" x-cloak class="px-4 py-10 text-error sm:px-8"></p>
-    <p x-show="!$store.crm.ready" class="px-4 py-10 sm:px-8 text-sm font-light text-ink-muted" role="status">Загружаем данные…</p>
+    <div x-show="!$store.crm.ready" class="flex flex-col gap-4 px-4 py-8 sm:px-8" role="status">
+      <div class="flex items-center gap-3 text-sm text-ink-muted">
+        <span class="spinner size-4"></span>
+        <span x-text="$store.loading?.slow ? 'Сервер просыпается, ещё пару секунд…' : 'Загружаем данные…'"></span>
+      </div>
+      <div class="space-y-3" aria-hidden="true">
+        <div class="skeleton h-10 w-full rounded-control"></div>
+        <div class="skeleton h-16 w-full rounded-control"></div>
+        <div class="skeleton h-16 w-full rounded-control"></div>
+      </div>
+    </div>

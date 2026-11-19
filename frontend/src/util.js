@@ -58,3 +58,60 @@ export const save = (key, value) => localStorage.setItem(key, JSON.stringify(val
 export const startOfDay = (d = new Date()) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 export const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 export const sameDay = (a, b) => startOfDay(a).getTime() === startOfDay(b).getTime()
+
+export function initPageProgress() {
+  let bar = document.getElementById('page-progress')
+  if (!bar) {
+    bar = document.createElement('div')
+    bar.id = 'page-progress'
+    bar.className = 'page-progress-bar'
+    document.body.prepend(bar)
+  }
+
+  let timer = null
+  let progress = 0
+
+  function set(p) {
+    progress = p
+    bar.style.transform = `scaleX(${p})`
+    if (p > 0) bar.classList.add('is-active')
+  }
+
+  function start() {
+    clearInterval(timer)
+    set(0.2)
+    timer = setInterval(() => {
+      if (progress < 0.85) {
+        set(progress + (0.85 - progress) * 0.2)
+      }
+    }, 200)
+  }
+
+  function done() {
+    clearInterval(timer)
+    if (progress > 0) {
+      set(1)
+      setTimeout(() => {
+        bar.classList.remove('is-active')
+        setTimeout(() => set(0), 250)
+      }, 150)
+    }
+  }
+
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a')
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return
+    const href = a.getAttribute('href')
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('tel:') || href.startsWith('mailto:')) return
+    try {
+      const u = new URL(a.href, location.origin)
+      if (u.origin !== location.origin) return
+      if (u.pathname === location.pathname && u.search === location.search) return
+      start()
+    } catch {}
+  })
+
+  window.addEventListener('beforeunload', () => start())
+
+  return { start, done }
+}

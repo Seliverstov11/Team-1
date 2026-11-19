@@ -70,7 +70,10 @@
       <option value="">Отметки: все</option><option value="urgent" :selected="flag === 'urgent'">Срочные</option><option value="problem" :selected="flag === 'problem'">Проблемные</option>
     </select>
     <button type="button" x-show="hasFilters" class="text-[0.75rem] text-ink-muted underline underline-offset-4 hover:text-ink" @click="reset()">Сбросить</button>
-    <span x-show="loading" class="text-[0.75rem] text-ink-muted">Обновляем…</span>
+    <span x-show="loading" class="inline-flex items-center gap-2 text-[0.75rem] text-ink-muted">
+      <span class="spinner size-3"></span>
+      <span x-text="$store.loading?.slow ? 'Сервер просыпается, ещё пару секунд…' : 'Обновляем…'"></span>
+    </span>
   </div>
   <p x-show="error" x-cloak class="rounded-card bg-error-soft px-5 py-3 text-[0.8125rem] text-error" x-text="error"></p>
 
@@ -98,6 +101,12 @@
           </a>
         </li>
       </template>
+      <li x-show="loading && !rows.length" class="px-4 py-8 text-center text-ink-muted">
+        <div class="flex flex-col items-center justify-center gap-2">
+          <span class="spinner size-5"></span>
+          <span class="text-xs" x-text="$store.loading?.slow ? 'Сервер просыпается, ещё пару секунд…' : 'Загружаем заказы…'"></span>
+        </div>
+      </li>
       <li x-show="!rows.length && !loading" class="px-4 py-12 text-center text-[0.8125rem] text-ink-muted">Заказов не найдено</li>
     </ul>
     <!-- Номер, дата, клиент, канал, город, статус, итог, оплата, менеджер -->
@@ -128,6 +137,12 @@
             <td class="text-right text-ink-muted">›</td>
           </tr>
         </template>
+        <tr x-show="loading && !rows.length"><td colspan="10" class="py-12 text-center text-ink-muted">
+          <div class="flex flex-col items-center justify-center gap-2">
+            <span class="spinner size-6"></span>
+            <span class="text-xs" x-text="$store.loading?.slow ? 'Сервер просыпается, ещё пару секунд…' : 'Загружаем заказы…'"></span>
+          </div>
+        </td></tr>
         <tr x-show="!rows.length && !loading"><td colspan="10" class="py-12 text-center text-ink-muted">Заказов не найдено</td></tr>
       </tbody>
     </table></div>

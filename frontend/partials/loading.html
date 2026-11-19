@@ -10,5 +10,8 @@
     </div>
   </template>
 </div>
+<p x-show="!$store.shop.ready && $store.loading?.slow" class="mt-4 text-center text-xs text-ink-muted" role="status">
+  Сервер просыпается, ещё пару секунд…
+</p>
 <span class="sr-only" x-show="!$store.shop.ready" role="status">Загружаем товары…</span>
 <p x-show="$store.shop.error" x-text="$store.shop.error" x-cloak class="py-10 text-error"></p>

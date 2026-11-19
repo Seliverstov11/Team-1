@@ -37,32 +37,82 @@ export const session = {
 const unauthorized = new Set()
 export const onUnauthorized = fn => unauthorized.add(fn)
 
+// Отслеживание активности API и таймер долгого ответа (> 4 сек, для Render Free)
+let activeCount = 0
+let slowTimer = null
+const loadingListeners = new Set()
+
+export const loadingState = {
+  busy: false,
+  slow: false,
+}
+
+function notifyLoading() {
+  loadingListeners.forEach(fn => fn({ ...loadingState }))
+}
+
+export const onLoadingChange = fn => {
+  loadingListeners.add(fn)
+  fn({ ...loadingState })
+  return () => loadingListeners.delete(fn)
+}
+
+function startRequest() {
+  activeCount++
+  if (activeCount === 1) {
+    loadingState.busy = true
+    notifyLoading()
+    slowTimer = setTimeout(() => {
+      if (activeCount > 0) {
+        loadingState.slow = true
+        notifyLoading()
+      }
+    }, 4000)
+  }
+}
+
+function endRequest() {
+  activeCount = Math.max(0, activeCount - 1)
+  if (activeCount === 0) {
+    clearTimeout(slowTimer)
+    slowTimer = null
+    loadingState.busy = false
+    loadingState.slow = false
+    notifyLoading()
+  }
+}
+
 const OFFLINE = 'Сервер недоступен. Проверьте, что backend запущен (cd backend && cargo run).'
 
 async function send(method, path, body, { auth = true, raw = false } = {}) {
-  const headers = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
-  const s = auth ? session.get() : null
-  if (s) headers.Authorization = `Bearer ${s.token}`
-  let res
+  startRequest()
   try {
-    res = await fetch(`${BASE}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
-  } catch {
-    throw new ApiError(OFFLINE, 0)
-  }
-  if (!res.ok) {
-    let message = `${res.status} ${res.statusText}`
-    try { message = (await res.json()).error ?? message } catch { /* не JSON */ }
-    if (res.status === 502 || res.status === 504) message = OFFLINE
-    if (res.status === 401 && s) {
-      session.clear()
-      unauthorized.forEach(fn => fn(message))
+    const headers = {}
+    if (body !== undefined) headers['Content-Type'] = 'application/json'
+    const s = auth ? session.get() : null
+    if (s) headers.Authorization = `Bearer ${s.token}`
+    let res
+    try {
+      res = await fetch(`${BASE}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+    } catch {
+      throw new ApiError(OFFLINE, 0)
     }
-    throw new ApiError(message, res.status)
+    if (!res.ok) {
+      let message = `${res.status} ${res.statusText}`
+      try { message = (await res.json()).error ?? message } catch { /* не JSON */ }
+      if (res.status === 502 || res.status === 504) message = OFFLINE
+      if (res.status === 401 && s) {
+        session.clear()
+        unauthorized.forEach(fn => fn(message))
+      }
+      throw new ApiError(message, res.status)
+    }
+    if (raw) return res.text()
+    const text = await res.text()
+    return text ? JSON.parse(text) : null
+  } finally {
+    endRequest()
   }
-  if (raw) return res.text()
-  const text = await res.text()
-  return text ? JSON.parse(text) : null
 }
 
 const request = (method, path, body, opts) => send(method, path, body, opts)

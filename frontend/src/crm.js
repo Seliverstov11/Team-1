@@ -6,7 +6,7 @@
 // Кладовщику сервер не отдаёт поля оплаты — интерфейс их просто не показывает.
 
 import Alpine from 'alpinejs'
-import { api, onUnauthorized, session } from './api.js'
+import { api, onUnauthorized, session, onLoadingChange } from './api.js'
 import { buildSections, groupOfCategory, lineSum, retail } from './catalog.js'
 import { formatQty, formatTiyn, milli, qtyToString, tiyn, tiynToString } from './money.js'
 import {
@@ -14,7 +14,7 @@ import {
   paymentKey,
 } from './orders.js'
 import { passwordProblems } from './password.js'
-import { fmt, formatPhone, isPhone, persisted, phoneDigits, save } from './util.js'
+import { fmt, formatPhone, isPhone, persisted, phoneDigits, save, initPageProgress } from './util.js'
 
 const params = new URLSearchParams(location.search)
 const LOCK_KEY = 'bakeloom.crm.lock'
@@ -145,6 +145,21 @@ const isOutstanding = o => o.status !== 'cancelled' && o.payment_status !== 'ref
 const byShelf = items => [...items].sort((a, b) => (a.storage_location ?? '').localeCompare(b.storage_location ?? '', 'ru', { numeric: true }))
 
 document.addEventListener('alpine:init', () => {
+  const pageProgress = initPageProgress()
+  Alpine.store('loading', {
+    busy: false,
+    slow: false,
+  })
+  onLoadingChange(s => {
+    const store = Alpine.store('loading')
+    if (store) {
+      store.busy = s.busy
+      store.slow = s.slow
+    }
+    if (s.busy) pageProgress.start()
+    else pageProgress.done()
+  })
+
   Alpine.store('fmt', { ...fmt, phone: formatPhone, money: formatTiyn, qty: formatQty, tiyn })
 
   // «Установить приложение»: кнопка видна, пока браузер готов установить и CRM открыта не из значка
