@@ -175,13 +175,16 @@
 
   <!-- Плавающая кнопка «Поддержка» -->
   <button type="button" @click="open = !open" :aria-expanded="open"
-          class="caps fixed right-3 z-40 inline-flex h-11 items-center gap-2 rounded-full border border-brand-gold/60 bg-surface/95 px-4 text-[0.6875rem] font-medium tracking-[0.14em] text-ink shadow-lift backdrop-blur transition hover:border-brand-gold hover:bg-surface lg:right-6 lg:bottom-6"
+          class="caps fixed right-3 z-40 inline-flex items-center justify-center border border-brand-gold/60 bg-surface/95 shadow-lift backdrop-blur transition hover:border-brand-gold hover:bg-surface text-ink
+                 max-sm:size-[52px] max-sm:rounded-full max-sm:p-0
+                 sm:h-11 sm:rounded-full sm:px-4 sm:gap-2 sm:text-[0.6875rem] sm:font-medium sm:tracking-[0.14em]
+                 lg:right-6 lg:bottom-6"
           :class="['cart', 'checkout'].includes($store.ui?.page) ? 'bottom-[calc(8rem+env(safe-area-inset-bottom))]' : 'bottom-[calc(4.5rem+env(safe-area-inset-bottom))]'"
-          aria-label="Служба поддержки">
-    <svg class="size-4 shrink-0 text-brand-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          aria-label="Поддержка">
+    <svg class="size-6 shrink-0 text-brand-gold sm:size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
-    <span>Поддержка</span>
+    <span class="max-sm:sr-only">Поддержка</span>
   </button>
 </div>
 
