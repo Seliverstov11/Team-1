@@ -145,7 +145,7 @@
           </div>
           <p class="mt-1 text-[0.6875rem] font-light text-ink-muted" x-text="form.delivery_method === 'pickup' ? 'Самовывоз — без доставки' : 'По Астане 1 200 ₸, в другие города 2 500 ₸'"></p>
           <p x-show="serverError" x-cloak role="alert" class="mt-4 rounded-xl bg-error-soft px-4 py-3 text-xs text-error" x-text="serverError"></p>
-          <button type="submit" class="btn-primary mt-6 w-full" :disabled="sending || $store.cart.blocked" x-text="sending ? 'Оформляем…' : 'Оформить'">Оформить</button>
+          <button type="submit" class="btn-primary mt-6 w-full max-lg:hidden" :disabled="sending || $store.cart.blocked" x-text="sending ? 'Оформляем…' : 'Оформить'">Оформить</button>
           <p x-show="touched && Object.keys(errors).length" x-cloak class="mt-3 text-center text-xs text-error">Проверьте выделенные поля</p>
           <p class="mt-3 text-center text-[0.6875rem] font-light text-ink-muted">Заказ сразу появится у менеджера в CRM. Оплату отмечает менеджер</p>
           <a href="/cart.html" class="mt-4 block text-center text-xs font-light underline underline-offset-4 hover:text-brand-gold">Вернуться в корзину</a>
